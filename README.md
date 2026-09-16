@@ -1,6 +1,6 @@
-# Trading Command Center — M23
+# Trading Command Center — M25
 
-SQL Server is configured for `DESKTOP-EF1NCS7 / Market`. See [M23 semi-live/direct entry](docs/M23.md), [M22 deterministic paper trading](docs/M22.md), [M21 Zerodha paper/live feed](docs/M21.md), [M20 Astra Backtest Analyst](docs/M20.md), [M19 strategy certificates](docs/M19.md), and [M18 deterministic risk policy](docs/M18.md). Local-first modular monolith. C# owns deterministic calculations and hard risk gates; SQL stores immutable evidence and AI analysis; Azure OpenAI explains research results; the operator retains final authority.
+SQL Server is configured for `DESKTOP-EF1NCS7 / Market`. See [M25 backtest engine abstraction](docs/M25.md), [M24 universal backtest specification](docs/M24.md), [M23 semi-live/direct entry](docs/M23.md), [M22 deterministic paper trading](docs/M22.md), [M21 Zerodha paper/live feed](docs/M21.md), [M20 Astra Backtest Analyst](docs/M20.md), [M19 strategy certificates](docs/M19.md), and [M18 deterministic risk policy](docs/M18.md). Local-first modular monolith. C# owns deterministic calculations and hard risk gates; SQL stores immutable evidence and AI analysis; Azure OpenAI explains research results; the operator retains final authority.
 
 ## Start in VS Code
 
@@ -50,6 +50,8 @@ Versions are centralized in `Directory.Packages.props`; each project commits `pa
 - Execution: framework WebSocket support plus an explicit Kite binary parser. M21 adds no broker SDK or NuGet package.
 - M22 adds a deterministic paper fill/ledger engine and no package or broker order client.
 - M23 uses framework `HttpClient` for Zerodha funds, positions, day orders, quotes and guarded LIMIT buys. The shared kill switch defaults to engaged and both direct-order gates default to false.
+- M24 adds a package-free, engine-neutral backtest specification, strict JSON validation, canonical SHA-256 sealing and a portable JSON Schema. It does not add an engine runtime or database migration.
+- M25 adds the common engine interface, an authoritative native C# adapter, portable hash-bound run evidence and an explicit CLI runner. It adds no package or database migration.
 - Tests: Microsoft.NET.Test.Sdk, xUnit, Visual Studio test adapter, Coverlet collector; integration tests also use ASP.NET Core MVC Testing, and unit tests use the dependency-injection container to verify options registration.
 - ASP.NET Core and Blazor use the shared framework. No extra UI framework is needed.
 
@@ -95,13 +97,13 @@ Development appsettings uses the supplied Windows-authenticated SQL Server conne
 
 A standalone repository is initialized on `main`. No remote is configured and nothing is published. `.gitignore` excludes builds, test results, local settings, keys and secrets; lock files and VS Code configuration are tracked.
 
-The implementation through M23 is local and uncommitted. This machine has no configured Git author, so no initial commit was made. To create it, set your identity locally and commit:
+The implementation through M25 is local and uncommitted. To create the initial commit, configure your identity if necessary and run:
 
 ```powershell
 git config user.name "YOUR NAME"
 git config user.email "YOUR EMAIL"
 git add .
-git commit -m "Add trading command center through M23 guarded live entry"
+git commit -m "Add trading command center through M25 engine abstraction"
 ```
 
-M23 adds semi-live proposals and an independently gated direct Zerodha LIMIT-buy route. It verifies certificate and aggregate paper evidence, requires fresh broker state and depth, refuses non-flat or already-active trading days, reapplies M18, and persists an idempotent prepared record before submission. The shared kill switch is engaged and both direct gates are disabled in committed configuration. Fill/exit reconciliation and unattended live strategy operation remain future work.
+M25 makes native C# the authoritative implementation behind a portable engine boundary. Future LEAN and vectorbt adapters can consume the same M24 input and return the same M25 evidence contract. M23 live behavior remains unchanged: the shared kill switch is engaged and both direct gates are disabled in committed configuration.

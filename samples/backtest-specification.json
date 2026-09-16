@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "strategyId": "vwap-ema-trend-breakout-v1",
+  "instrument": {
+    "instrumentId": "11111111-1111-1111-1111-111111111111",
+    "exchange": "NSE",
+    "tradingSymbol": "NIFTY 50",
+    "assetClass": "equityIndex",
+    "currency": "INR",
+    "lotSize": 1,
+    "tickSize": 0.05
+  },
+  "data": {
+    "fromUtc": "2025-01-01T03:45:00Z",
+    "toUtc": "2026-01-01T03:45:00Z",
+    "timeframeMinutes": 5,
+    "exchangeTimeZoneId": "India Standard Time",
+    "calendarId": "nse-v1",
+    "source": "local-sql",
+    "version": "nifty-2025-v1",
+    "datasetSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "marketDataMode": "ohlcvBars"
+  },
+  "capital": {
+    "initialCapital": 100000,
+    "riskPerTrade": 750,
+    "maximumCapitalPerTrade": 30000,
+    "maximumLots": 5
+  },
+  "execution": {
+    "rewardRiskMultiple": 3,
+    "slippageBasisPointsPerSide": 5,
+    "costProfileId": "zerodha-nse-equity-intraday-2026-03-01",
+    "sessionExitTime": "15:25:00",
+    "signalTiming": "completedBar",
+    "entryFillPolicy": "nextObservedBarOpen",
+    "ambiguousBarPolicy": "stopFirst",
+    "endOfDataPolicy": "closeLastObserved"
+  },
+  "parameters": {
+    "adxPeriod": 14,
+    "atrPeriod": 14,
+    "atrStopMultiple": 1,
+    "breakoutLookbackBars": 3,
+    "entryWindowEndMinuteOfDay": 690,
+    "entryWindowStartMinuteOfDay": 570,
+    "fastEmaPeriod": 20,
+    "minimumAdx": 20,
+    "rewardRiskMultiple": 3,
+    "slowEmaPeriod": 50,
+    "volumeAveragePeriod": 20,
+    "volumeMultiplier": 1.5
+  }
+}

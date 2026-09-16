@@ -7,16 +7,20 @@ using Trading.Application.Research;
 using System.Text;
 using Trading.Application.Execution;
 using Trading.Execution.Zerodha;
+using Trading.Application.Backtesting;
+using System.Text.Json;
+using Trading.Backtesting.Engines;
 
 var command = MarketDataCommands.IsCommand(args) || OosTestCommands.IsCommand(args) ||
     WalkForwardCommands.IsCommand(args) || ResearchIntegrityCommands.IsCommand(args) ||
     DatabaseCommands.IsCommand(args) || OptionDataCommands.IsCommand(args) || OptionsBacktestCommands.IsCommand(args) ||
     RiskPolicyCommands.IsCommand(args) || StrategyCertificateCommands.IsCommand(args) ||
     BacktestAnalystCommands.IsCommand(args) || MarketFeedCommands.IsCommand(args) ||
-    PaperTradingCommands.IsCommand(args) || LiveTradingCommands.IsCommand(args);
+    PaperTradingCommands.IsCommand(args) || LiveTradingCommands.IsCommand(args) ||
+    BacktestSpecificationCommands.IsCommand(args) || BacktestEngineCommands.IsCommand(args);
 if (args.Length > 0 && !command && !args[0].StartsWith("--", StringComparison.Ordinal))
 {
-    Console.Error.WriteLine("Unknown command. See docs/M23.md for available research, feed, paper, live, analysis, certificate, risk, and database commands.");
+    Console.Error.WriteLine("Unknown command. See docs/M25.md for available engine, specification, research, feed, paper, live, analysis, certificate, risk, and database commands.");
     Environment.ExitCode = 2;
     return;
 }
@@ -34,6 +38,9 @@ var zerodhaOptions = builder.Configuration.GetSection(ZerodhaFeedOptions.Section
 var liveTradingOptions = builder.Configuration.GetSection("LiveTrading").Get<Trading.Execution.Live.LiveTradingSettings>() ?? new();
 builder.Services.AddSingleton(zerodhaOptions);
 builder.Services.AddHttpClient<ILiveBrokerClient, ZerodhaTradingClient>(client => client.Timeout = TimeSpan.FromSeconds(15));
+builder.Services.AddSingleton(new BacktestEngineDescriptor(NativeBacktestEngine.Id,
+    NativeBacktestEngine.Version, NativeBacktestEngine.EngineRole));
+builder.Services.AddScoped<IBacktestEngine, NativeBacktestEngine>();
 builder.Services.AddRazorComponents();
 builder.Services.AddHealthChecks().AddCheck<DatabaseReadinessCheck>("database", tags: ["ready"], timeout: TimeSpan.FromSeconds(20));
 
@@ -69,6 +76,10 @@ if (command)
                                                     ? await PaperTradingCommands.RunAsync(args, app.Services, builder.Configuration, Console.Out, Console.Error, cancellation.Token)
                                                     : LiveTradingCommands.IsCommand(args)
                                                         ? await LiveTradingCommands.RunAsync(args, app.Services, builder.Configuration, Console.Out, Console.Error, cancellation.Token)
+                                                        : BacktestSpecificationCommands.IsCommand(args)
+                                                            ? await BacktestSpecificationCommands.RunAsync(args, Console.Out, Console.Error, cancellation.Token)
+                                                            : BacktestEngineCommands.IsCommand(args)
+                                                                ? await BacktestEngineCommands.RunAsync(args, app.Services, Console.Out, Console.Error, cancellation.Token)
                                     : await MarketDataCommands.RunAsync(args, app.Services, Console.Out, Console.Error, cancellation.Token);
     }
     finally { Console.CancelKeyPress -= cancel; await app.DisposeAsync(); }
@@ -80,7 +91,7 @@ app.MapHealthChecks("/health", new HealthCheckOptions { Predicate = _ => false }
 app.MapHealthChecks("/health/ready", new HealthCheckOptions { Predicate = check => check.Tags.Contains("ready") });
 app.MapGet("/api/status", () => new
 {
-    milestone = "M23",
+    milestone = "M25",
     strategies = new[]
     {
         "vwap-ema-trend-breakout-v1",
@@ -97,12 +108,34 @@ app.MapGet("/api/status", () => new
     marketFeeds = "paper-replay-and-read-only-zerodha-sandbox-live-v1",
     paperTrading = "certificate-and-risk-gated-deterministic-option-buying-v1",
     liveTrading = "risk-gated-semi-and-direct-limit-entry-v1",
+    backtestSpecification = "universal-engine-neutral-v1",
+    backtestEngineAbstraction = "authoritative-native-csharp-v1",
     liveTradingKillSwitchEngaged = liveTradingOptions.KillSwitchEngaged,
     directLiveOrdersEnabled = !liveTradingOptions.KillSwitchEngaged && zerodhaOptions.AllowLiveOrders &&
         liveTradingOptions.AllowDirectOrders,
     backtesting = "operational-walk-forward-testing",
     aiIntegration = "azure-openai-responses-explicit-cli-only"
 });
+app.MapGet("/api/backtest-engines", (IEnumerable<BacktestEngineDescriptor> engines) => Results.Ok(new
+{
+    schemaVersion = 1,
+    engines = engines.OrderBy(item => item.EngineId, StringComparer.Ordinal).Select(item => new
+    {
+        item.EngineId,
+        item.EngineVersion,
+        role = JsonNamingPolicy.CamelCase.ConvertName(item.Role.ToString())
+    })
+}));
+app.MapGet("/api/backtest-specification", () => Results.Ok(new
+{
+    schemaVersion = BacktestSpecificationCodec.CurrentSchemaVersion,
+    range = "fromUtc-inclusive/toUtc-exclusive",
+    parameterValueType = "decimal",
+    canonicalHash = "sha256-canonical-json",
+    supportedMarketDataModes = Enum.GetNames<BacktestMarketDataMode>().Select(JsonNamingPolicy.CamelCase.ConvertName),
+    supportedEntryFillPolicies = Enum.GetNames<BacktestEntryFillPolicy>().Select(JsonNamingPolicy.CamelCase.ConvertName),
+    jsonSchema = "docs/schemas/backtest-specification-v1.schema.json"
+}));
 app.MapGet("/api/risk-policy", (IConfiguration configuration) =>
     Results.Ok(configuration.GetSection("RiskPolicy").Get<Trading.Risk.Policy.DeterministicRiskPolicySettings>() ?? new()));
 app.MapGet("/api/certificates", async (IServiceScopeFactory scopes, IConfiguration configuration,

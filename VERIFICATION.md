@@ -1,5 +1,23 @@
 # Verification — September 16, 2026
 
+## M25 backtest engine abstraction
+
+- Added `IBacktestEngine` with explicit authoritative, independent-validation and research-exploration roles, plus a portable versioned run contract that retains the sealed M24 specification and declared dataset hashes.
+- Added the authoritative `native-csharp` v1 adapter. It validates registered instrument identity, reads the exact UTC half-open candle range, fingerprints consumed rows, strictly translates parameters for all five native strategies, and maps capital, costs, slippage, risk sizing and session closure into the audited deterministic engine.
+- Added canonical SHA-256 sealing for portable run evidence. Validation reconciles engine identity, trade chronology, win/loss counts, gross/cost/net values, aggregate P&L and the post-trade capital ledger; tampering invalidates the result hash.
+- Added `run-backtest-spec --engine native-csharp --file <sealed.json> --output <run.json>` with strict input verification, engine selection, result verification and atomic non-overwriting output. Added `/api/backtest-engines`; metadata discovery requires no SQL connection.
+- Full isolated-output solution build passed with 0 warnings and 0 errors. All 235 tests passed: UnitTests 47, IntegrationTests 62, StrategyValidationTests 43, BacktestTests 83. No tests skipped. The separate output directory avoided interrupting an already-running desktop-owned `Trading.Api` process.
+- M25 adds no NuGet package, table, migration, Azure resource, broker call or AI request. LEAN/vectorbt adapters, cross-engine comparison and portable-run persistence remain later work. See `docs/M25.md`.
+
+## M24 universal backtest specification
+
+- Added a versioned, engine-neutral `BacktestSpecification` in Application. It captures strategy parameters, instrument identity, dataset identity/hash, UTC half-open range, timeframe/calendar/time zone, capital/risk/lot limits, costs, slippage and explicit execution policies without depending on the native backtester.
+- Added strict JSON handling that rejects unknown and duplicate properties, integer enum values, unsupported timeframes, non-UTC or empty ranges, invalid hashes/capital, case-colliding parameters and incompatible market-data/fill policies.
+- Canonical sealing trims bounded strings, lowercases dataset hashes, sorts parameters and normalizes decimal scale before calculating SHA-256. Tests prove insertion order, whitespace and decimal scale do not change identity while semantic changes do.
+- Added `seal-backtest-spec`, a checked-in sample, a draft-2020-12 JSON Schema, and `/api/backtest-specification`. The final sample command succeeded with specification SHA-256 `6257bd795e30850ec0b9f0838c76d2676c7ded3df92f2557c8bb4ac199f500d1`.
+- Full isolated-output solution build passed with 0 warnings and 0 errors. All 223 tests passed: UnitTests 46, IntegrationTests 59, StrategyValidationTests 43, BacktestTests 75. No tests skipped. An already-running `Trading.Api` process held the normal output assemblies, so verification used a separate temporary output directory rather than interrupting that desktop-owned process.
+- M24 adds no NuGet package, table, migration, external engine, broker call or AI request. M25 remains responsible for the common engine interface and native adapter. See `docs/M24.md`.
+
 ## M23 risk-gated semi-live and direct live entry
 
 - Added a semi-live workflow that reads current Zerodha equity funds, net positions, today's orders and full market depth; verifies M19/M22 evidence; reapplies M18; persists a hash-bound proposal; and sends no order.

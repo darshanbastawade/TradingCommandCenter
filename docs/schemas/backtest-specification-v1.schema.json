@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trading-command-center.local/schemas/backtest-specification-v1.schema.json",
+  "title": "Trading Command Center Universal Backtest Specification v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "strategyId", "instrument", "data", "capital", "execution", "parameters"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "strategyId": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "instrument": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["instrumentId", "exchange", "tradingSymbol", "assetClass", "currency", "lotSize", "tickSize"],
+      "properties": {
+        "instrumentId": { "type": "string", "format": "uuid", "not": { "const": "00000000-0000-0000-0000-000000000000" } },
+        "exchange": { "type": "string", "minLength": 1, "maxLength": 16 },
+        "tradingSymbol": { "type": "string", "minLength": 1, "maxLength": 96 },
+        "assetClass": { "enum": ["equity", "equityIndex", "indexOption"] },
+        "currency": { "type": "string", "minLength": 1, "maxLength": 8 },
+        "lotSize": { "type": "integer", "minimum": 1 },
+        "tickSize": { "type": "number", "exclusiveMinimum": 0 }
+      }
+    },
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fromUtc", "toUtc", "timeframeMinutes", "exchangeTimeZoneId", "calendarId", "source", "version", "datasetSha256", "marketDataMode"],
+      "properties": {
+        "fromUtc": { "type": "string", "format": "date-time" },
+        "toUtc": { "type": "string", "format": "date-time" },
+        "timeframeMinutes": { "enum": [1, 3, 5, 15, 30, 60, 1440] },
+        "exchangeTimeZoneId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "calendarId": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "source": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "version": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "datasetSha256": { "type": "string", "pattern": "^[A-Fa-f0-9]{64}$" },
+        "marketDataMode": { "enum": ["ohlcvBars", "observedOptionQuotes"] }
+      }
+    },
+    "capital": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["initialCapital", "riskPerTrade", "maximumCapitalPerTrade", "maximumLots"],
+      "properties": {
+        "initialCapital": { "type": "number", "exclusiveMinimum": 0 },
+        "riskPerTrade": { "type": "number", "exclusiveMinimum": 0 },
+        "maximumCapitalPerTrade": { "type": "number", "exclusiveMinimum": 0 },
+        "maximumLots": { "type": ["integer", "null"], "minimum": 1 }
+      }
+    },
+    "execution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rewardRiskMultiple", "slippageBasisPointsPerSide", "costProfileId", "sessionExitTime", "signalTiming", "entryFillPolicy", "ambiguousBarPolicy", "endOfDataPolicy"],
+      "properties": {
+        "rewardRiskMultiple": { "type": "number", "exclusiveMinimum": 0, "maximum": 20 },
+        "slippageBasisPointsPerSide": { "type": "number", "minimum": 0, "exclusiveMaximum": 10000 },
+        "costProfileId": { "type": "string", "minLength": 1, "maxLength": 96 },
+        "sessionExitTime": { "type": "string", "pattern": "^(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d{1,7})?$" },
+        "signalTiming": { "const": "completedBar" },
+        "entryFillPolicy": { "enum": ["nextObservedBarOpen", "observedAsk"] },
+        "ambiguousBarPolicy": { "const": "stopFirst" },
+        "endOfDataPolicy": { "const": "closeLastObserved" }
+      }
+    },
+    "parameters": {
+      "type": "object",
+      "maxProperties": 128,
+      "propertyNames": { "pattern": "^[A-Za-z0-9._-]{1,64}$" },
+      "additionalProperties": { "type": "number" }
+    }
+  }
+}

@@ -25,7 +25,9 @@ public sealed class HostSmokeTests
 
     [Theory]
     [InlineData("/health", "Healthy")]
-    [InlineData("/api/status", "\"milestone\":\"M23\"")]
+    [InlineData("/api/status", "\"milestone\":\"M25\"")]
+    [InlineData("/api/backtest-specification", "\"schemaVersion\":1")]
+    [InlineData("/api/backtest-engines", "native-csharp")]
     [InlineData("/api/risk-policy", "india-intraday-options-conservative-v1")]
     [InlineData("/api/reports", "\"schemaVersion\":1")]
     [InlineData("/api/certificates", "\"schemaVersion\":1")]
