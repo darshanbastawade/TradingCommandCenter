@@ -1,0 +1,15 @@
+{
+  "requestId": "23232323-2323-2323-2323-232323232323",
+  "instrumentId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+  "instrumentToken": 12345678,
+  "exchange": "NFO",
+  "tradingSymbol": "NIFTY26SEP25000CE",
+  "proposedEntryUtc": "2026-09-16T03:45:00Z",
+  "plannedExitUtc": "2026-09-16T09:55:00Z",
+  "limitPrice": 100.20,
+  "stopPrice": 90.00,
+  "targetPrice": 130.00,
+  "lotSize": 25,
+  "maximumLots": 1,
+  "operatorApproved": false
+}

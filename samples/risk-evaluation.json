@@ -1,0 +1,20 @@
+{
+  "availableCash": 100000,
+  "killSwitchEngaged": false,
+  "qualifiedStrategyIds": ["vwap-ema-trend-breakout-v1"],
+  "closedTrades": [],
+  "openPositions": [],
+  "request": {
+    "requestId": "aaaaaaaa-1818-1818-1818-181818181818",
+    "strategyId": "vwap-ema-trend-breakout-v1",
+    "instrumentId": "bbbbbbbb-1818-1818-1818-181818181818",
+    "proposedEntryUtc": "2026-09-15T04:30:00Z",
+    "plannedExitUtc": "2026-09-15T09:50:00Z",
+    "entryPrice": 100,
+    "stopPrice": 95,
+    "lotSize": 25,
+    "maximumLots": null,
+    "capitalPool": "Active",
+    "isScaleIn": false
+  }
+}

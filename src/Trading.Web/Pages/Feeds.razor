@@ -1,0 +1,17 @@
+@page "/feeds"
+<main class="page">
+    <p class="eyebrow">M21 · MARKET DATA</p>
+    <h1>Paper and Zerodha feed captures</h1>
+    <p class="hero-copy">Capture bounded tick sets from deterministic NDJSON replay, Zerodha sandbox, or a deliberately enabled production WebSocket feed.</p>
+
+    <section class="status-grid">
+        <article><span class="card-index">01</span><h2>Identity</h2><p>Every token is mapped to an exchange and trading symbol because exchange tokens can be reused.</p></article>
+        <article><span class="card-index">02</span><h2>Evidence</h2><p>Each completed capture is written atomically, hashed with SHA-256 and persisted in Market.</p></article>
+        <article><span class="card-index">03</span><h2>Boundary</h2><p>The feed adapter receives quotes only. It cannot place, modify or cancel orders.</p></article>
+    </section>
+
+    <section class="boundary-banner">
+        <div><span class="status-dot"></span><strong>Production feed is disabled by default</strong></div>
+        <p>Credentials belong in User Secrets. Set Zerodha:AllowLiveFeed only when you intentionally want a read-only production capture.</p>
+    </section>
+</main>

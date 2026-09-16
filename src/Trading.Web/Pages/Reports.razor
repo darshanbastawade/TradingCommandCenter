@@ -1,0 +1,48 @@
+@page "/reports"
+<main class="page reports-page">
+    <section class="page-heading">
+        <div>
+            <p class="eyebrow">RESEARCH EVIDENCE · SCHEMA V1</p>
+            <h1>Backtest reports</h1>
+            <p>One view for net performance, risk, trade outcomes and the conditions where a strategy worked or failed.</p>
+        </div>
+        <span class="research-badge">Research only</span>
+    </section>
+
+    <section class="empty-report" aria-labelledby="empty-title">
+        <div class="empty-icon" aria-hidden="true">∿</div>
+        <div>
+            <p class="eyebrow">REPORT CATALOG</p>
+            <h2 id="empty-title">No certified reports in Market yet</h2>
+            <p>M16 stores completed research artifacts in the report catalog. A selected result can then become an M19 strategy certificate for controlled paper trading.</p>
+            <code>dotnet run --project src/Trading.Api -- run-research [options]</code>
+            <p>After persistence, use the M20 analyst command to request a structured Astra review without changing the report.</p>
+        </div>
+    </section>
+
+    <section class="report-preview" aria-label="Available report sections">
+        <div class="section-title"><div><p class="eyebrow">AVAILABLE SECTIONS</p><h2>Report anatomy</h2></div><span>JSON export ready</span></div>
+        <div class="metric-grid">
+            <article><span>Net P&amp;L</span><strong>—</strong><small>after all modeled costs</small></article>
+            <article><span>Expectancy</span><strong>—</strong><small>net result per trade</small></article>
+            <article><span>Maximum drawdown</span><strong>—</strong><small>closed-equity decline</small></article>
+            <article><span>Average net R</span><strong>—</strong><small>risk-normalized outcome</small></article>
+        </div>
+        <div class="report-columns">
+            <article>
+                <h3>Equity &amp; risk</h3>
+                <ul><li>Daily realized equity curve</li><li>Sharpe and Sortino ratios</li><li>Drawdown and recovery factor</li></ul>
+            </article>
+            <article>
+                <h3>Trade outcomes</h3>
+                <ul><li>Total, median and drawdown R</li><li>Average and median duration</li><li>Target, stop and session exits</li></ul>
+            </article>
+            <article>
+                <h3>Behavioral slices</h3>
+                <ul><li>Month and year</li><li>Entry weekday</li><li>Configurable entry-time buckets</li></ul>
+            </article>
+        </div>
+    </section>
+
+    <p class="method-note">Display rounding never feeds back into calculations. Undefined ratios stay empty instead of being shown as zero or infinity.</p>
+</main>

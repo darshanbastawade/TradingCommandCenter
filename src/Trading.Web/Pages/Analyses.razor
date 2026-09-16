@@ -1,0 +1,30 @@
+@page "/analyses"
+<main class="page reports-page">
+    <section class="page-heading">
+        <div>
+            <p class="eyebrow">ASTRA · STRUCTURED EVIDENCE REVIEW</p>
+            <h1>Backtest analyses</h1>
+            <p>Astra explains immutable research evidence and proposes the next tests. C# retains every calculation and gate.</p>
+        </div>
+        <span class="research-badge">Analysis only</span>
+    </section>
+
+    <section class="empty-report" aria-labelledby="analysis-title">
+        <div class="empty-icon" aria-hidden="true">A</div>
+        <div>
+            <p class="eyebrow">ANALYSIS CATALOG</p>
+            <h2 id="analysis-title">Analyze a persisted M16 research run</h2>
+            <p>The command verifies the evidence hash, requests strict structured output and stores the exact result with model, prompt and token metadata.</p>
+            <code>dotnet run --project src/Trading.Api -- analyze-backtest --research-run-id [id] --output .\artifacts\analysis.json</code>
+        </div>
+    </section>
+
+    <section class="report-preview">
+        <div class="section-title"><div><p class="eyebrow">MODEL BOUNDARY</p><h2>Interpretation with traceability</h2></div><span>No tools · store false</span></div>
+        <div class="report-columns">
+            <article><h3>Reads</h3><ul><li>OOS and walk-forward evidence</li><li>Regimes and robustness</li><li>Execution sensitivity</li></ul></article>
+            <article><h3>Produces</h3><ul><li>Strengths and weaknesses</li><li>Overfitting concerns</li><li>Required next tests</li></ul></article>
+            <article><h3>Cannot do</h3><ul><li>Recalculate C# metrics</li><li>Issue certificates</li><li>Authorize an order</li></ul></article>
+        </div>
+    </section>
+</main>

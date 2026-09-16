@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <base href="/" />
+    <title>Trading Command Center</title>
+    <link rel="stylesheet" href="_content/Trading.Web/trading.css" />
+    <HeadOutlet />
+</head>
+<body>
+    <div class="app-shell">
+        <header class="topbar">
+            <a class="brand" href="/" aria-label="Trading Command Center home">
+                <span class="brand-mark">TC</span>
+                <span>Trading Command Center</span>
+            </a>
+            <nav aria-label="Primary navigation">
+                <NavLink href="/" Match="NavLinkMatch.All">Overview</NavLink>
+                <NavLink href="/reports">Reports</NavLink>
+                <NavLink href="/certificates">Certificates</NavLink>
+                <NavLink href="/analyses">Analyses</NavLink>
+                <NavLink href="/feeds">Feeds</NavLink>
+                <NavLink href="/paper">Paper</NavLink>
+                <NavLink href="/live">Live</NavLink>
+            </nav>
+        </header>
+        <Router AppAssembly="typeof(App).Assembly">
+            <Found Context="routeData"><RouteView RouteData="routeData" /></Found>
+            <NotFound><main class="page"><h1>Page not found</h1><a href="/">Return to overview</a></main></NotFound>
+        </Router>
+        <footer>Local research workspace · Deterministic C# evidence · Human authority</footer>
+    </div>
+</body>
+</html>

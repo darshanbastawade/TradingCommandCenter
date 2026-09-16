@@ -1,0 +1,9 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    { "label": "restore", "type": "process", "command": "dotnet", "args": ["restore", "TradingCommandCenter.sln", "--locked-mode"], "problemMatcher": "$msCompile" },
+    { "label": "build", "type": "process", "command": "dotnet", "args": ["build", "TradingCommandCenter.sln"], "group": { "kind": "build", "isDefault": true }, "problemMatcher": "$msCompile" },
+    { "label": "test", "type": "process", "command": "dotnet", "args": ["test", "TradingCommandCenter.sln"], "group": "test", "problemMatcher": "$msCompile" },
+    { "label": "run", "type": "process", "command": "dotnet", "args": ["run", "--project", "src/Trading.Api", "--launch-profile", "http"], "problemMatcher": "$msCompile" }
+  ]
+}

@@ -1,0 +1,30 @@
+@page "/certificates"
+<main class="page reports-page">
+    <section class="page-heading">
+        <div>
+            <p class="eyebrow">QUALIFICATION EVIDENCE · SCHEMA V1</p>
+            <h1>Strategy certificates</h1>
+            <p>A certificate binds a selected strategy to the exact research evidence that qualified it for controlled paper trading.</p>
+        </div>
+        <span class="research-badge">No live authority</span>
+    </section>
+
+    <section class="empty-report" aria-labelledby="certificate-title">
+        <div class="empty-icon" aria-hidden="true">✓</div>
+        <div>
+            <p class="eyebrow">CERTIFICATE CATALOG</p>
+            <h2 id="certificate-title">Issue only from a certified research run</h2>
+            <p>M19 verifies the stored M16 artifact and creates certificates only for the strategies selected by its hard qualification gates.</p>
+            <code>dotnet run --project src/Trading.Api -- issue-certificates --research-run-id [id] --output-dir .\artifacts</code>
+        </div>
+    </section>
+
+    <section class="report-preview">
+        <div class="section-title"><div><p class="eyebrow">AUTHORITY BOUNDARY</p><h2>What a certificate means</h2></div><span>90-day default validity</span></div>
+        <div class="report-columns">
+            <article><h3>Evidence bound</h3><ul><li>Dataset and artifact hashes</li><li>Rank and qualification gates</li><li>Tested risk and cost settings</li></ul></article>
+            <article><h3>Paper stage</h3><ul><li>Research-qualified status</li><li>Current validity window</li><li>M18 required for every order</li></ul></article>
+            <article><h3>Human control</h3><ul><li>No live-trading authority</li><li>No broker instruction</li><li>Explicit human approval required</li></ul></article>
+        </div>
+    </section>
+</main>

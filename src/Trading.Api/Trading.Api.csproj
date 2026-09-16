@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup><UserSecretsId>TradingCommandCenter-Api-local-7b53de29</UserSecretsId></PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Trading.Application/Trading.Application.csproj" />
+    <ProjectReference Include="../Trading.Infrastructure/Trading.Infrastructure.csproj" />
+    <ProjectReference Include="../Trading.MarketData/Trading.MarketData.csproj" />
+    <ProjectReference Include="../Trading.Strategies/Trading.Strategies.csproj" />
+    <ProjectReference Include="../Trading.Backtesting/Trading.Backtesting.csproj" />
+    <ProjectReference Include="../Trading.Risk/Trading.Risk.csproj" />
+    <ProjectReference Include="../Trading.Execution/Trading.Execution.csproj" />
+    <ProjectReference Include="../Trading.AI/Trading.AI.csproj" />
+    <ProjectReference Include="../Trading.Web/Trading.Web.csproj" />
+  </ItemGroup>
+</Project>
