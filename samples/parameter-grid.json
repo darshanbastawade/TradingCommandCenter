@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "topCandidates": 10,
+  "parameters": {
+    "atrStopMultiple": [0.75, 1.0, 1.25],
+    "breakoutLookbackBars": [2, 3, 4],
+    "fastEmaPeriod": [10, 15, 20],
+    "minimumAdx": [20, 25, 30],
+    "volumeMultiplier": [1.2, 1.5]
+  }
+}

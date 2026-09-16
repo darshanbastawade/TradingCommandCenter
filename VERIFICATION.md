@@ -1,5 +1,27 @@
 # Verification — September 16, 2026
 
+## M28 native candidate verification
+
+- Added `verify-backtest-candidates`, which selects retained M27 candidates by research rank, re-verifies their sealed specification and declared dataset identities, and invokes the single M25 engine whose role is authoritative.
+- Successful candidates retain the complete native `BacktestRun` JSON, result hash, net P&L and trade count. Expected specification or engine failures become explicit `NativeFailed` evidence.
+- Candidate state changes, the sweep completion marker and one hash-bound `NativeCandidateVerificationRun` are committed in a single transaction; database uniqueness prevents later overwrite.
+- A combined SQLite integration test executes M27 then M28 through fake process/engine boundaries and verifies the stored native run. Native verification does not confer research qualification or trading authority.
+
+## M27 parameter sweep and candidate store
+
+- Added deterministic, case-sensitive Cartesian grid expansion over existing M24 parameter names. It rejects duplicate JSON properties/values, unknown parameters, invalid top counts and more than 10,000 combinations; every combination becomes its own sealed M24 specification.
+- Added `sweep-parameters` with bounded inputs, worker-role enforcement, result verification, stable score/hash ordering and atomic non-overwriting artifacts.
+- Added `ParameterSweeps`, `BacktestCandidates` and `NativeCandidateVerificationRuns`, relational constraints, duplicate-prevention indexes, transactional stores, catalog/detail APIs and migration `20260916061108_M28ResearchCandidates`.
+- Migration was applied to local `DESKTOP-EF1NCS7 / Market`. Live M28 smoke checks returned HTTP 200 readiness, zero stored sweeps, and the expected vectorbt/native status boundaries.
+
+## M26 vectorbt research worker
+
+- Added a no-shell Python process adapter with version/role checks, temporary request/result files, output bounds, cancellation, a ten-minute timeout and request/result SHA-256 evidence.
+- Added vectorized screening for all five strategies using completed-bar indicators, next-row signals, session exits, stop/target distances and slippage. The worker is explicitly `researchExploration`; native calculations remain authoritative.
+- Pinned vectorbt 1.1.0 and a smoke-tested Python 3.13/Windows lock file. Plotly is constrained below 7 because vectorbt 1.1.0 still registers a removed Plotly template.
+- The real vectorbt worker smoke run succeeded with one candidate and 13 trades; Python compilation also passed. Full isolated-output solution build passed with 0 warnings and 0 errors. All 241 tests passed: UnitTests 48, IntegrationTests 65, StrategyValidationTests 43, BacktestTests 85. No tests skipped.
+- M26–M28 made no broker, Azure OpenAI or Azure-hosting call. See `docs/M26.md`, `docs/M27.md` and `docs/M28.md`.
+
 ## M25 backtest engine abstraction
 
 - Added `IBacktestEngine` with explicit authoritative, independent-validation and research-exploration roles, plus a portable versioned run contract that retains the sealed M24 specification and declared dataset hashes.

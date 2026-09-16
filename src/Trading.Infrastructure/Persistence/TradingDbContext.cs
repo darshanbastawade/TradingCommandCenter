@@ -12,6 +12,9 @@ public sealed class TradingDbContext(DbContextOptions<TradingDbContext> options)
     public DbSet<OptionContract> OptionContracts => Set<OptionContract>();
     public DbSet<OptionQuote> OptionQuotes => Set<OptionQuote>();
     public DbSet<ResearchRun> ResearchRuns => Set<ResearchRun>();
+    public DbSet<ParameterSweep> ParameterSweeps => Set<ParameterSweep>();
+    public DbSet<BacktestCandidate> BacktestCandidates => Set<BacktestCandidate>();
+    public DbSet<NativeCandidateVerificationRun> NativeCandidateVerificationRuns => Set<NativeCandidateVerificationRun>();
     public DbSet<IssuedStrategyCertificate> StrategyCertificates => Set<IssuedStrategyCertificate>();
     public DbSet<BacktestAnalysis> BacktestAnalyses => Set<BacktestAnalysis>();
     public DbSet<MarketFeedCapture> MarketFeedCaptures => Set<MarketFeedCapture>();
@@ -109,6 +112,67 @@ public sealed class TradingDbContext(DbContextOptions<TradingDbContext> options)
         research.HasIndex(x => new { x.InstrumentId, x.Timeframe, x.FromUtc, x.ToUtc });
         research.HasIndex(x => new { x.DatasetSha256, x.ConfigurationSha256, x.SourceRevision }).IsUnique();
         research.HasOne<Instrument>().WithMany().HasForeignKey(x => x.InstrumentId).OnDelete(DeleteBehavior.Restrict);
+
+        var sweep = modelBuilder.Entity<ParameterSweep>();
+        sweep.ToTable("ParameterSweeps", table => table.HasCheckConstraint("CK_ParameterSweeps_Counts",
+            "[EvaluatedCandidates] > 0 AND [StoredCandidates] > 0 AND [StoredCandidates] <= [EvaluatedCandidates]"));
+        sweep.HasKey(x => x.Id); sweep.Property(x => x.Id).ValueGeneratedNever();
+        sweep.Property(x => x.CreatedAtUtc).HasColumnType("datetime2(7)")
+            .HasConversion(value => value, value => DateTime.SpecifyKind(value, DateTimeKind.Utc));
+        sweep.Property(x => x.StrategyId).HasMaxLength(128).IsRequired();
+        sweep.Property(x => x.WorkerId).HasMaxLength(64).IsRequired();
+        sweep.Property(x => x.WorkerVersion).HasMaxLength(64).IsRequired();
+        foreach (var property in new[] { nameof(ParameterSweep.BaseSpecificationSha256),
+                     nameof(ParameterSweep.DatasetSha256), nameof(ParameterSweep.GridSha256),
+                     nameof(ParameterSweep.ArtifactSha256) })
+            sweep.Property<string>(property).HasMaxLength(64).IsFixedLength().IsRequired();
+        sweep.Property(x => x.ArtifactJson).IsRequired();
+        sweep.HasIndex(x => x.CreatedAtUtc);
+        sweep.HasIndex(x => new { x.BaseSpecificationSha256, x.GridSha256, x.WorkerId, x.WorkerVersion }).IsUnique();
+
+        var candidate = modelBuilder.Entity<BacktestCandidate>();
+        candidate.ToTable("BacktestCandidates", table =>
+        {
+            table.HasCheckConstraint("CK_BacktestCandidates_Rank", "[Rank] > 0");
+            table.HasCheckConstraint("CK_BacktestCandidates_Status",
+                "[Status] IN ('ResearchProposed', 'NativeVerified', 'NativeFailed')");
+            table.HasCheckConstraint("CK_BacktestCandidates_TradeCount", "[NativeTradeCount] IS NULL OR [NativeTradeCount] >= 0");
+        });
+        candidate.HasKey(x => x.Id); candidate.Property(x => x.Id).ValueGeneratedNever();
+        candidate.Property(x => x.StrategyId).HasMaxLength(128).IsRequired();
+        foreach (var property in new[] { nameof(BacktestCandidate.SpecificationSha256),
+                     nameof(BacktestCandidate.DatasetSha256), nameof(BacktestCandidate.ResearchEvidenceSha256) })
+            candidate.Property<string>(property).HasMaxLength(64).IsFixedLength().IsRequired();
+        candidate.Property(x => x.ResearchScore).HasColumnType("decimal(18,8)").HasPrecision(18, 8);
+        candidate.Property(x => x.CandidateSpecificationJson).IsRequired();
+        candidate.Property(x => x.ParametersJson).IsRequired(); candidate.Property(x => x.ResearchMetricsJson).IsRequired();
+        candidate.Property(x => x.Status).HasMaxLength(32).IsRequired();
+        candidate.Property(x => x.VerifiedAtUtc).HasColumnType("datetime2(7)")
+            .HasConversion(value => value, value => value.HasValue ? DateTime.SpecifyKind(value.Value, DateTimeKind.Utc) : null);
+        candidate.Property(x => x.NativeEngineId).HasMaxLength(64).IsRequired();
+        candidate.Property(x => x.NativeEngineVersion).HasMaxLength(64).IsRequired();
+        candidate.Property(x => x.NativeResultSha256).HasMaxLength(64).IsRequired();
+        candidate.Property(x => x.NativeNetPnl).HasColumnType("decimal(18,4)").HasPrecision(18, 4);
+        candidate.Property(x => x.NativeRunJson).IsRequired();
+        candidate.Property(x => x.VerificationFailure).HasMaxLength(512).IsRequired();
+        candidate.HasIndex(x => new { x.ParameterSweepId, x.Rank }).IsUnique();
+        candidate.HasIndex(x => new { x.ParameterSweepId, x.SpecificationSha256 }).IsUnique();
+        candidate.HasOne<ParameterSweep>().WithMany().HasForeignKey(x => x.ParameterSweepId).OnDelete(DeleteBehavior.Cascade);
+
+        var verification = modelBuilder.Entity<NativeCandidateVerificationRun>();
+        verification.ToTable("NativeCandidateVerificationRuns", table => table.HasCheckConstraint(
+            "CK_NativeCandidateVerificationRuns_Counts",
+            "[RequestedCandidates] > 0 AND [VerifiedCandidates] >= 0 AND [FailedCandidates] >= 0 AND [VerifiedCandidates] + [FailedCandidates] = [RequestedCandidates]"));
+        verification.HasKey(x => x.Id); verification.Property(x => x.Id).ValueGeneratedNever();
+        verification.Property(x => x.CreatedAtUtc).HasColumnType("datetime2(7)")
+            .HasConversion(value => value, value => DateTime.SpecifyKind(value, DateTimeKind.Utc));
+        verification.Property(x => x.EngineId).HasMaxLength(64).IsRequired();
+        verification.Property(x => x.EngineVersion).HasMaxLength(64).IsRequired();
+        verification.Property(x => x.ArtifactSha256).HasMaxLength(64).IsFixedLength().IsRequired();
+        verification.Property(x => x.ArtifactJson).IsRequired();
+        verification.HasIndex(x => x.ParameterSweepId).IsUnique();
+        verification.HasOne<ParameterSweep>().WithMany().HasForeignKey(x => x.ParameterSweepId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         var strategyCertificate = modelBuilder.Entity<IssuedStrategyCertificate>();
         strategyCertificate.ToTable("StrategyCertificates");

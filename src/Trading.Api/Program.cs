@@ -10,6 +10,7 @@ using Trading.Execution.Zerodha;
 using Trading.Application.Backtesting;
 using System.Text.Json;
 using Trading.Backtesting.Engines;
+using Trading.Backtesting.Research;
 
 var command = MarketDataCommands.IsCommand(args) || OosTestCommands.IsCommand(args) ||
     WalkForwardCommands.IsCommand(args) || ResearchIntegrityCommands.IsCommand(args) ||
@@ -17,10 +18,11 @@ var command = MarketDataCommands.IsCommand(args) || OosTestCommands.IsCommand(ar
     RiskPolicyCommands.IsCommand(args) || StrategyCertificateCommands.IsCommand(args) ||
     BacktestAnalystCommands.IsCommand(args) || MarketFeedCommands.IsCommand(args) ||
     PaperTradingCommands.IsCommand(args) || LiveTradingCommands.IsCommand(args) ||
-    BacktestSpecificationCommands.IsCommand(args) || BacktestEngineCommands.IsCommand(args);
+    BacktestSpecificationCommands.IsCommand(args) || BacktestEngineCommands.IsCommand(args) ||
+    ResearchCandidateCommands.IsCommand(args);
 if (args.Length > 0 && !command && !args[0].StartsWith("--", StringComparison.Ordinal))
 {
-    Console.Error.WriteLine("Unknown command. See docs/M25.md for available engine, specification, research, feed, paper, live, analysis, certificate, risk, and database commands.");
+    Console.Error.WriteLine("Unknown command. See docs/M28.md for available candidate, engine, specification, research, feed, paper, live, analysis, certificate, risk, and database commands.");
     Environment.ExitCode = 2;
     return;
 }
@@ -41,6 +43,9 @@ builder.Services.AddHttpClient<ILiveBrokerClient, ZerodhaTradingClient>(client =
 builder.Services.AddSingleton(new BacktestEngineDescriptor(NativeBacktestEngine.Id,
     NativeBacktestEngine.Version, NativeBacktestEngine.EngineRole));
 builder.Services.AddScoped<IBacktestEngine, NativeBacktestEngine>();
+var vectorbtOptions = builder.Configuration.GetSection("VectorbtWorker").Get<VectorbtWorkerOptions>() ?? new();
+builder.Services.AddSingleton(vectorbtOptions);
+builder.Services.AddSingleton<IResearchBacktestWorker, VectorbtResearchWorker>();
 builder.Services.AddRazorComponents();
 builder.Services.AddHealthChecks().AddCheck<DatabaseReadinessCheck>("database", tags: ["ready"], timeout: TimeSpan.FromSeconds(20));
 
@@ -80,6 +85,8 @@ if (command)
                                                             ? await BacktestSpecificationCommands.RunAsync(args, Console.Out, Console.Error, cancellation.Token)
                                                             : BacktestEngineCommands.IsCommand(args)
                                                                 ? await BacktestEngineCommands.RunAsync(args, app.Services, Console.Out, Console.Error, cancellation.Token)
+                                                                : ResearchCandidateCommands.IsCommand(args)
+                                                                    ? await ResearchCandidateCommands.RunAsync(args, app.Services, Console.Out, Console.Error, cancellation.Token)
                                     : await MarketDataCommands.RunAsync(args, app.Services, Console.Out, Console.Error, cancellation.Token);
     }
     finally { Console.CancelKeyPress -= cancel; await app.DisposeAsync(); }
@@ -91,7 +98,7 @@ app.MapHealthChecks("/health", new HealthCheckOptions { Predicate = _ => false }
 app.MapHealthChecks("/health/ready", new HealthCheckOptions { Predicate = check => check.Tags.Contains("ready") });
 app.MapGet("/api/status", () => new
 {
-    milestone = "M25",
+    milestone = "M28",
     strategies = new[]
     {
         "vwap-ema-trend-breakout-v1",
@@ -110,6 +117,9 @@ app.MapGet("/api/status", () => new
     liveTrading = "risk-gated-semi-and-direct-limit-entry-v1",
     backtestSpecification = "universal-engine-neutral-v1",
     backtestEngineAbstraction = "authoritative-native-csharp-v1",
+    vectorbtResearchWorker = "vectorbt-1.1.0-research-exploration",
+    parameterCandidateStore = "immutable-sweep-and-candidate-evidence-v1",
+    nativeCandidateVerification = "authoritative-native-replay-v1",
     liveTradingKillSwitchEngaged = liveTradingOptions.KillSwitchEngaged,
     directLiveOrdersEnabled = !liveTradingOptions.KillSwitchEngaged && zerodhaOptions.AllowLiveOrders &&
         liveTradingOptions.AllowDirectOrders,
@@ -126,6 +136,27 @@ app.MapGet("/api/backtest-engines", (IEnumerable<BacktestEngineDescriptor> engin
         role = JsonNamingPolicy.CamelCase.ConvertName(item.Role.ToString())
     })
 }));
+app.MapGet("/api/parameter-sweeps", async (IServiceScopeFactory scopes, IConfiguration configuration,
+    CancellationToken token) =>
+{
+    if (string.IsNullOrWhiteSpace(configuration.GetConnectionString("TradingDatabase")))
+        return Results.Ok(new { schemaVersion = 1, sweeps = Array.Empty<object>(), message = "Database is not configured." });
+    await using var scope = scopes.CreateAsyncScope();
+    var sweeps = await scope.ServiceProvider.GetRequiredService<IBacktestCandidateStore>().ListSweepsAsync(cancellationToken: token);
+    return Results.Ok(new { schemaVersion = 1, sweeps });
+});
+app.MapGet("/api/parameter-sweeps/{id:guid}", async (Guid id, IServiceScopeFactory scopes,
+    IConfiguration configuration, CancellationToken token) =>
+{
+    if (string.IsNullOrWhiteSpace(configuration.GetConnectionString("TradingDatabase")))
+        return Results.Problem("Database is not configured.", statusCode: 503);
+    await using var scope = scopes.CreateAsyncScope();
+    var store = scope.ServiceProvider.GetRequiredService<IBacktestCandidateStore>();
+    var sweep = await store.FindSweepAsync(id, token);
+    if (sweep is null) return Results.NotFound();
+    var candidates = await store.ListCandidatesAsync(id, cancellationToken: token);
+    return Results.Ok(new { schemaVersion = 1, sweep, candidates });
+});
 app.MapGet("/api/backtest-specification", () => Results.Ok(new
 {
     schemaVersion = BacktestSpecificationCodec.CurrentSchemaVersion,

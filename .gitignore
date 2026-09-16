@@ -14,3 +14,5 @@ TestResults/
 *.key
 *.log
 .local/
+**/__pycache__/
+*.pyc

@@ -89,6 +89,9 @@ public sealed class PersistenceTests
         Assert.Contains("CREATE TABLE [MarketFeedCaptures]", sql);
         Assert.Contains("CREATE TABLE [PaperTradingSessions]", sql);
         Assert.Contains("CREATE TABLE [LiveOrders]", sql);
+        Assert.Contains("CREATE TABLE [ParameterSweeps]", sql);
+        Assert.Contains("CREATE TABLE [BacktestCandidates]", sql);
+        Assert.Contains("CREATE TABLE [NativeCandidateVerificationRuns]", sql);
     }
 
     [Fact]

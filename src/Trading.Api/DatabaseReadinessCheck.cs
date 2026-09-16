@@ -28,6 +28,9 @@ public sealed class DatabaseReadinessCheck(IServiceScopeFactory scopeFactory, IC
             _ = await db.MarketFeedCaptures.AsNoTracking().AnyAsync(cancellationToken);
             _ = await db.PaperTradingSessions.AsNoTracking().AnyAsync(cancellationToken);
             _ = await db.LiveOrders.AsNoTracking().AnyAsync(cancellationToken);
+            _ = await db.ParameterSweeps.AsNoTracking().AnyAsync(cancellationToken);
+            _ = await db.BacktestCandidates.AsNoTracking().AnyAsync(cancellationToken);
+            _ = await db.NativeCandidateVerificationRuns.AsNoTracking().AnyAsync(cancellationToken);
             return HealthCheckResult.Healthy();
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }

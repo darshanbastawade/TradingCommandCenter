@@ -1,0 +1,3 @@
+vectorbt==1.1.0
+# vectorbt 1.1.0 still registers the scattermapbox template removed by Plotly 7.
+plotly>=4.12,<7

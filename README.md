@@ -1,12 +1,12 @@
-# Trading Command Center — M25
+# Trading Command Center — M28
 
-SQL Server is configured for `DESKTOP-EF1NCS7 / Market`. See [M25 backtest engine abstraction](docs/M25.md), [M24 universal backtest specification](docs/M24.md), [M23 semi-live/direct entry](docs/M23.md), [M22 deterministic paper trading](docs/M22.md), [M21 Zerodha paper/live feed](docs/M21.md), [M20 Astra Backtest Analyst](docs/M20.md), [M19 strategy certificates](docs/M19.md), and [M18 deterministic risk policy](docs/M18.md). Local-first modular monolith. C# owns deterministic calculations and hard risk gates; SQL stores immutable evidence and AI analysis; Azure OpenAI explains research results; the operator retains final authority.
+SQL Server is configured for `DESKTOP-EF1NCS7 / Market`. See [M28 native candidate verification](docs/M28.md), [M27 parameter sweep and candidate store](docs/M27.md), [M26 vectorbt worker](docs/M26.md), [M25 engine abstraction](docs/M25.md), and [M24 universal specification](docs/M24.md). Local-first modular monolith. C# owns authoritative calculations and hard risk gates; vectorbt screens research candidates; SQL preserves evidence; Azure OpenAI explains certified results; the operator retains final authority.
 
 ## Start in VS Code
 
 Open this folder in VS Code (`code .` from this directory). Install the recommended Microsoft C# Dev Kit extension when prompted. No Visual Studio installation is required.
 
-Prerequisites: .NET SDK 10.0.401 (or a later 10.0.4xx patch), Git, and internet access for the first NuGet restore.
+Prerequisites: .NET SDK 10.0.401 (or a later 10.0.4xx patch), Git, SQL Server, and internet access for the first NuGet restore. M26 parameter screening additionally requires Python 3.11–3.14 and the locked worker environment described in [docs/M26.md](docs/M26.md).
 
 ```powershell
 dotnet restore TradingCommandCenter.sln --locked-mode
@@ -15,7 +15,7 @@ dotnet test TradingCommandCenter.sln --no-build
 dotnet run --project src/Trading.Api --launch-profile http
 ```
 
-Open http://localhost:5080 for the overview, `/reports` for research, `/certificates` for qualification evidence, `/analyses` for the Astra workflow, `/feeds` for market captures, `/paper` for simulation, and `/live` for the M23 boundary. `/health` checks application liveness only; `/api/status` reports the milestone. Stop with Ctrl+C. In VS Code, Ctrl+Shift+B builds and F5 starts the debugger. The `test` task runs all four test projects.
+Open http://localhost:5080 for the overview, `/candidates` for M26–M28 screening, `/reports` for certified research, `/certificates` for qualification evidence, `/analyses` for the Astra workflow, `/feeds` for market captures, `/paper` for simulation, and `/live` for the M23 boundary. `/health` checks application liveness only; `/api/status` reports the milestone. Stop with Ctrl+C. In VS Code, Ctrl+Shift+B builds and F5 starts the debugger. The `test` task runs all four test projects.
 
 ### Why .NET 10 instead of .NET 8?
 
@@ -52,6 +52,9 @@ Versions are centralized in `Directory.Packages.props`; each project commits `pa
 - M23 uses framework `HttpClient` for Zerodha funds, positions, day orders, quotes and guarded LIMIT buys. The shared kill switch defaults to engaged and both direct-order gates default to false.
 - M24 adds a package-free, engine-neutral backtest specification, strict JSON validation, canonical SHA-256 sealing and a portable JSON Schema. It does not add an engine runtime or database migration.
 - M25 adds the common engine interface, an authoritative native C# adapter, portable hash-bound run evidence and an explicit CLI runner. It adds no package or database migration.
+- M26 pins vectorbt 1.1.0 in an isolated Python worker and labels its output research-only.
+- M27 adds bounded deterministic parameter-grid expansion and immutable SQL sweep/candidate evidence.
+- M28 independently verifies selected candidates with native C# and preserves each complete native run.
 - Tests: Microsoft.NET.Test.Sdk, xUnit, Visual Studio test adapter, Coverlet collector; integration tests also use ASP.NET Core MVC Testing, and unit tests use the dependency-injection container to verify options registration.
 - ASP.NET Core and Blazor use the shared framework. No extra UI framework is needed.
 
@@ -97,13 +100,13 @@ Development appsettings uses the supplied Windows-authenticated SQL Server conne
 
 A standalone repository is initialized on `main`. No remote is configured and nothing is published. `.gitignore` excludes builds, test results, local settings, keys and secrets; lock files and VS Code configuration are tracked.
 
-The implementation through M25 is local and uncommitted. To create the initial commit, configure your identity if necessary and run:
+The implementation through M28 is local and uncommitted. To create the initial commit, configure your identity if necessary and run:
 
 ```powershell
 git config user.name "YOUR NAME"
 git config user.email "YOUR EMAIL"
 git add .
-git commit -m "Add trading command center through M25 engine abstraction"
+git commit -m "Add trading command center through M28 candidate verification"
 ```
 
-M25 makes native C# the authoritative implementation behind a portable engine boundary. Future LEAN and vectorbt adapters can consume the same M24 input and return the same M25 evidence contract. M23 live behavior remains unchanged: the shared kill switch is engaged and both direct gates are disabled in committed configuration.
+M26–M28 create a one-way research pipeline: vectorbt proposes, SQL preserves, and native C# verifies. Research scores and native verification do not qualify a strategy by themselves. M23 live behavior remains unchanged: the shared kill switch is engaged and both direct gates are disabled in committed configuration.

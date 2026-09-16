@@ -22,6 +22,7 @@ public static class DependencyInjection
         services.AddScoped<IMarketDataStore, MarketDataStore>();
         services.AddScoped<IOptionMarketDataStore, OptionMarketDataStore>();
         services.AddScoped<IResearchRunStore, ResearchRunStore>();
+        services.AddScoped<IBacktestCandidateStore, BacktestCandidateStore>();
         services.AddScoped<IStrategyCertificateStore, StrategyCertificateStore>();
         services.AddScoped<IBacktestAnalysisStore, BacktestAnalysisStore>();
         services.AddScoped<IMarketFeedCaptureStore, MarketFeedCaptureStore>();
