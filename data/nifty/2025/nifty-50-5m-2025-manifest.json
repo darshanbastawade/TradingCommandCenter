@@ -1,0 +1,26 @@
+{
+  "SchemaVersion": 1,
+  "Provider": "Upstox",
+  "ProviderApi": "historical-candle-v3",
+  "InstrumentKey": "NSE_INDEX|Nifty 50",
+  "TimeframeMinutes": 5,
+  "RequestedYear": 2025,
+  "GeneratedAtUtc": "2026-09-17T12:29:00.1872294+00:00",
+  "TotalCandles": 18622,
+  "Files": [
+    {
+      "FileName": "nifty-50-5m-2025-01.csv",
+      "RowCount": 9500,
+      "FirstTimestamp": "2025-01-01T09:15:00+05:30",
+      "LastTimestamp": "2025-07-04T12:30:00+05:30",
+      "Sha256": "d6a60c2f5b1efe68c0878fd9a800024cfdf67f4d4938387efcdf70e246fbca11"
+    },
+    {
+      "FileName": "nifty-50-5m-2025-02.csv",
+      "RowCount": 9122,
+      "FirstTimestamp": "2025-07-04T12:35:00+05:30",
+      "LastTimestamp": "2025-12-31T15:25:00+05:30",
+      "Sha256": "44c9f64377cb7dbf40718ad6464f13bd6921d24461de8e620483229c1549b2c0"
+    }
+  ]
+}

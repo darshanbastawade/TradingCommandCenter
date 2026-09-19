@@ -62,28 +62,32 @@ public static class ResearchIntegrityCommands
             var dataSource = Required(values, "data-source");
             var dataVersion = Required(values, "data-version");
             var calendarId = Required(values, "calendar-id");
-            var holidayFile = Path.GetFullPath(Required(values, "holiday-file"));
+            var calendarFile = Path.GetFullPath(CalendarFile(values));
             var destination = Path.GetFullPath(Required(values, "output"));
             ValidateOutput(destination);
 
             var zone = TimeZoneInfo.FindSystemTimeZoneById("India Standard Time");
+            var entries = DatasetQualityCertifier.ParseCalendar(
+                await File.ReadAllLinesAsync(calendarFile, cancellationToken));
             var calendar = new ExchangeSessionCalendar(calendarId, zone, new(9, 15), new(15, 30),
-                DatasetQualityCertifier.ParseHolidays(await File.ReadAllLinesAsync(holidayFile, cancellationToken)));
-            var from = AtSessionOpen(fromSession, calendar);
-            var to = AtSessionOpen(toSession, calendar);
+                entries.Holidays, entries.SpecialSessions);
+            var from = AtLocalMidnight(fromSession, calendar);
+            var to = AtLocalMidnight(toSession, calendar);
 
             await using var scope = services.CreateAsyncScope();
             var store = scope.ServiceProvider.GetRequiredService<IMarketDataStore>();
             var instrument = await store.FindInstrumentAsync(instrumentId, cancellationToken) ??
                 throw new ArgumentException("The requested instrument is not registered.");
-            var candles = await ReadAllAsync(store, instrumentId, timeframe, from, to, cancellationToken);
-            var certificate = DatasetQualityCertifier.Certify(candles, instrumentId, timeframe, fromSession,
+            var rawCandles = await ReadAllAsync(store, instrumentId, timeframe, from, to, cancellationToken);
+            var certification = DatasetQualityCertifier.Certify(rawCandles, instrumentId, timeframe, fromSession,
                 toSession, calendar, dataSource, dataVersion);
+            var certificate = certification.Certificate;
             if (!certificate.Passed)
             {
                 await error.WriteLineAsync(JsonSerializer.Serialize(certificate));
                 return 2;
             }
+            var candles = certification.CertifiedCandles;
 
             var configuration = services.GetRequiredService<IConfiguration>();
             var rankingSettings = configuration.GetSection("StrategyRanking").Get<StrategyRankingSettings>() ?? new();
@@ -153,7 +157,9 @@ public static class ResearchIntegrityCommands
             await scope.ServiceProvider.GetRequiredService<IResearchRunStore>().AddAsync(run, cancellationToken);
             await output.WriteLineAsync(JsonSerializer.Serialize(new { status = "research-run-created",
                 runId, output = destination, datasetSha256 = certificate.DatasetSha256,
-                artifactSha256 = artifactHash, strategies = evidence.Count,
+                artifactSha256 = artifactHash, rawCandles = certificate.RawCandleCount,
+                certifiedCandles = certificate.CertifiedCandleCount,
+                excludedCandles = certificate.ExcludedCandleCount, strategies = evidence.Count,
                 qualified = ranking.SelectedStrategies.Select(item => item.StrategyId) }));
             return 0;
         }
@@ -220,8 +226,9 @@ public static class ResearchIntegrityCommands
     private static Candle[] InRange(IEnumerable<Candle> candles, DateOnly start, DateOnly end, TimeZoneInfo zone) =>
         candles.Where(candle => { var session = DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(candle.OpenTimeUtc, zone)); return session >= start && session <= end; }).ToArray();
 
-    private static DateTimeOffset AtSessionOpen(DateOnly date, ExchangeSessionCalendar calendar) =>
-        new(TimeZoneInfo.ConvertTimeToUtc(date.ToDateTime(calendar.SessionOpen, DateTimeKind.Unspecified), calendar.TimeZone), TimeSpan.Zero);
+    private static DateTimeOffset AtLocalMidnight(DateOnly date, ExchangeSessionCalendar calendar) =>
+        new(TimeZoneInfo.ConvertTimeToUtc(date.ToDateTime(TimeOnly.MinValue,
+            DateTimeKind.Unspecified), calendar.TimeZone), TimeSpan.Zero);
 
     private static string Sha256(string value) =>
         Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value))).ToLowerInvariant();
@@ -254,13 +261,22 @@ public static class ResearchIntegrityCommands
         var allowed = new HashSet<string>(StringComparer.Ordinal) { "instrument-id", "timeframe", "from-session",
             "to-session-exclusive", "training-sessions", "testing-sessions", "embargo-sessions", "training-mode",
             "initial-capital", "allowed-risk", "maximum-capital", "maximum-lots", "slippage-bps", "cost-profile",
-            "source-revision", "data-source", "data-version", "calendar-id", "holiday-file", "output" };
+            "source-revision", "data-source", "data-version", "calendar-id", "calendar-file",
+            "holiday-file", "output" };
         var result = new Dictionary<string, string>(StringComparer.Ordinal);
         for (var index = 1; index < args.Length; index++) { if (!args[index].StartsWith("--", StringComparison.Ordinal)) throw new ArgumentException("Expected a named --option."); var key = args[index][2..]; if (!allowed.Contains(key)) throw new ArgumentException($"Unknown option: --{key}"); if (++index == args.Length || args[index].StartsWith("--", StringComparison.Ordinal)) throw new ArgumentException($"Missing value for --{key}"); if (!result.TryAdd(key, args[index])) throw new ArgumentException($"Duplicate option: --{key}"); }
         return result;
     }
 
     private static string Required(IReadOnlyDictionary<string, string> values, string key) => values.TryGetValue(key, out var value) && !string.IsNullOrWhiteSpace(value) ? value : throw new ArgumentException($"Missing --{key}");
+    private static string CalendarFile(IReadOnlyDictionary<string, string> values)
+    {
+        var hasCalendar = values.TryGetValue("calendar-file", out var calendar);
+        var hasHoliday = values.TryGetValue("holiday-file", out var holiday);
+        if (hasCalendar == hasHoliday)
+            throw new ArgumentException("Specify exactly one of --calendar-file or --holiday-file.");
+        return hasCalendar ? calendar! : holiday!;
+    }
     private static int PositiveInt(IReadOnlyDictionary<string, string> values, string key) { var value = int.Parse(Required(values, key), NumberStyles.None, CultureInfo.InvariantCulture); return value > 0 ? value : throw new ArgumentException($"--{key} must be positive."); }
     private static int NonNegativeInt(IReadOnlyDictionary<string, string> values, string key, int fallback) { if (!values.ContainsKey(key)) return fallback; var value = int.Parse(Required(values, key), NumberStyles.None, CultureInfo.InvariantCulture); return value >= 0 ? value : throw new ArgumentException($"--{key} cannot be negative."); }
     private static decimal PositiveDecimal(IReadOnlyDictionary<string, string> values, string key) { var value = decimal.Parse(Required(values, key), NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture); return value > 0 ? value : throw new ArgumentException($"--{key} must be positive."); }

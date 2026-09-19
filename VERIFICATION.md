@@ -1,4 +1,11 @@
-# Verification — September 16, 2026
+# Verification — September 18, 2026
+
+## M16.1 exchange calendar and certified research slice
+
+- Added full-day holiday and date-specific session parsing with special-session precedence over weekends and holidays. The supplied 2025 calendar declares Budget Saturday (09:15–15:30) and Muhurat trading (13:45–14:45).
+- The research command reads complete local dates, records every excluded observation, and sends only the certified slice to all deterministic research stages. Outside-session observations are acceptable audited exclusions; duplicates, missing expected bars, and in-session off-grid bars still fail certification.
+- The downloaded 2025 NIFTY files contain 18,622 unique raw candles. Calendar verification produced 18,612 expected/certified candles, 10 post-close exclusions, and zero missing bars.
+- Full solution build passed with 0 warnings and 0 errors. All 246 tests passed: UnitTests 53, IntegrationTests 65, StrategyValidationTests 43, BacktestTests 85. No tests skipped.
 
 ## M28 native candidate verification
 
@@ -123,6 +130,9 @@
 
 ## M16 research integrity closure
 
+- M16.1 adds typed exchange calendars with full-day holidays and date-specific sessions. Special sessions override weekend/holiday closures, covering the 2025 Budget Saturday and Muhurat grids.
+- Certification now returns an auditable research slice. Raw out-of-session vendor observations remain in SQL, appear as timestamped exclusions, and never reach holdout, walk-forward, robustness, regime, stress, or ranking calculations.
+- The downloaded 2025 NIFTY files were checked against `data/nse-calendar-2025.csv`: 18,622 raw and unique candles, 18,612 expected/certified candles, 10 classified post-close exclusions, and zero missing expected candles.
 - Added strict exchange-session certification for the requested dataset, with declared holidays, missing/duplicate/unexpected-bar findings and a canonical SHA-256 over metadata and candle values.
 - Added one `run-research` command that evaluates all five strategies with comparable holdout, walk-forward, parameter-neighborhood, point-in-time regime, best-trade-removal and adverse execution evidence.
 - Ranking qualification, weights and normalization scales are configuration-bound and copied into the immutable artifact.

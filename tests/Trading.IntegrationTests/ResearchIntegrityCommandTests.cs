@@ -50,7 +50,13 @@ public sealed class ResearchIntegrityCommandTests
             Assert.Equal(0, exit);
             Assert.Equal(string.Empty, error.ToString());
             using var artifact = JsonDocument.Parse(await File.ReadAllTextAsync(destination));
-            Assert.True(artifact.RootElement.GetProperty("dataset").GetProperty("passed").GetBoolean());
+            var dataset = artifact.RootElement.GetProperty("dataset");
+            Assert.True(dataset.GetProperty("passed").GetBoolean());
+            Assert.Equal(601, dataset.GetProperty("rawCandleCount").GetInt32());
+            Assert.Equal(600, dataset.GetProperty("certifiedCandleCount").GetInt32());
+            Assert.Equal(1, dataset.GetProperty("excludedCandleCount").GetInt32());
+            Assert.Equal("outside-declared-session", dataset.GetProperty("exclusions")[0]
+                .GetProperty("reason").GetString());
             Assert.Equal(5, artifact.RootElement.GetProperty("strategies").GetArrayLength());
             Assert.Equal(5, artifact.RootElement.GetProperty("ranking").GetProperty("rankings").GetArrayLength());
             await using var scope = services.CreateAsyncScope();
@@ -76,7 +82,7 @@ public sealed class ResearchIntegrityCommandTests
         "--training-mode", "rolling", "--initial-capital", "100000", "--allowed-risk", "750",
         "--maximum-capital", "100000", "--slippage-bps", "5", "--cost-profile", "none",
         "--source-revision", "integration-fixture", "--data-source", "synthetic",
-        "--data-version", "v1", "--calendar-id", "nse-fixture-v1", "--holiday-file", holidayFile,
+        "--data-version", "v1", "--calendar-id", "nse-fixture-v1", "--calendar-file", holidayFile,
         "--output", destination
     ];
 
@@ -85,13 +91,17 @@ public sealed class ResearchIntegrityCommandTests
         var sessions = new List<DateOnly>();
         for (var date = FirstSession; sessions.Count < 8; date = date.AddDays(1))
             if (date.DayOfWeek is not DayOfWeek.Saturday and not DayOfWeek.Sunday) sessions.Add(date);
-        return sessions.SelectMany((session, day) => Enumerable.Range(0, 75).Select(bar =>
+        var certified = sessions.SelectMany((session, day) => Enumerable.Range(0, 75).Select(bar =>
         {
             var local = session.ToDateTime(new TimeOnly(9, 15).AddMinutes(bar * 5), DateTimeKind.Unspecified);
             var utc = TimeZoneInfo.ConvertTimeToUtc(local, India);
             var close = 100m + day + bar * .01m;
             return new Candle(InstrumentId, Timeframe.Minute5, new DateTimeOffset(utc, TimeSpan.Zero),
                 close, close + 1, close - 1, close, 100);
-        })).ToArray();
+        }));
+        var postCloseLocal = FirstSession.ToDateTime(new TimeOnly(15, 35), DateTimeKind.Unspecified);
+        var postCloseUtc = TimeZoneInfo.ConvertTimeToUtc(postCloseLocal, India);
+        return certified.Append(new Candle(InstrumentId, Timeframe.Minute5,
+            new DateTimeOffset(postCloseUtc, TimeSpan.Zero), 100, 101, 99, 100, 100)).ToArray();
     }
 }
