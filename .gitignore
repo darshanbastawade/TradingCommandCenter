@@ -16,3 +16,4 @@ TestResults/
 .local/
 **/__pycache__/
 *.pyc
+*.csv
