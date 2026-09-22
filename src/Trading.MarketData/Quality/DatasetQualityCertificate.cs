@@ -51,6 +51,7 @@ public sealed record DatasetQualityCertificate(
     int RawCandleCount,
     int CertifiedCandleCount,
     int ExcludedCandleCount,
+    string CalendarSha256,
     string DatasetSha256,
     IReadOnlyList<DatasetExclusion> Exclusions,
     IReadOnlyList<DatasetQualityIssue> Issues);
@@ -82,7 +83,8 @@ public static class DatasetQualityCertifier
             .Where(candle => !expectedTimes.Contains(candle.OpenTimeUtc))
             .OrderBy(candle => candle.OpenTimeUtc)
             .Select(candle => new DatasetExclusion(candle.OpenTimeUtc,
-                ExclusionReason(candle.OpenTimeUtc, timeframe, calendar)))
+                ExclusionReason(candle.OpenTimeUtc, timeframe, fromSession,
+                    toSessionExclusive, calendar)))
             .ToArray();
 
         var issues = new List<DatasetQualityIssue>();
@@ -90,8 +92,15 @@ public static class DatasetQualityCertifier
             "Duplicate candle timestamps were observed.");
         Add(issues, "missing-candle", expectedTimes.Count(time => !actualSet.Contains(time)),
             "Expected exchange-session candles are missing.");
+        Add(issues, "unexpected-session-date",
+            exclusions.Count(exclusion => exclusion.Reason == "unexpected-session-date"),
+            "Candles exist on dates with no declared exchange session.");
+        Add(issues, "outside-requested-range",
+            exclusions.Count(exclusion => exclusion.Reason == "outside-requested-range"),
+            "Candles exist outside the requested research date range.");
         Add(issues, "off-grid-candle",
-            exclusions.Count(exclusion => exclusion.Reason != "outside-declared-session"),
+            exclusions.Count(exclusion => exclusion.Reason is "off-grid-within-declared-session" or
+                "unexpected-session-candle"),
             "Candles inside a declared session do not align to its timeframe grid.");
 
         var observedSessions = candles
@@ -102,13 +111,14 @@ public static class DatasetQualityCertifier
             .Select(candle => Session(candle.OpenTimeUtc, calendar.TimeZone))
             .Distinct()
             .Count();
+        var calendarSha256 = CalendarFingerprint(calendar);
         var certificate = new DatasetQualityCertificate(
-            2, issues.Count == 0, dataSource.Trim(), dataVersion.Trim(), calendar.Id.Trim(),
+            3, issues.Count == 0, dataSource.Trim(), dataVersion.Trim(), calendar.Id.Trim(),
             instrumentId, timeframe, fromSession, toSessionExclusive, expectedSessions.Length,
             observedSessions, certifiedSessions, expectedTimes.Count, candles.Count, candles.Count,
-            certifiedCandles.Length, exclusions.Length,
+            certifiedCandles.Length, exclusions.Length, calendarSha256,
             Fingerprint(certifiedCandles, instrumentId, timeframe, fromSession,
-                toSessionExclusive, calendar.Id, dataSource, dataVersion),
+                toSessionExclusive, calendarSha256, calendar.Id, dataSource, dataVersion),
             Array.AsReadOnly(exclusions), issues.AsReadOnly());
 
         return new(certificate, Array.AsReadOnly(certifiedCandles));
@@ -153,6 +163,9 @@ public static class DatasetQualityCertifier
             InvalidCalendarLine(lineNumber);
         }
 
+        if (holidays.Overlaps(specialSessions.Keys))
+            throw new FormatException("A date cannot be both a holiday and a special session.");
+
         return new(holidays, specialSessions);
     }
 
@@ -185,6 +198,7 @@ public static class DatasetQualityCertifier
             fromSession >= toSessionExclusive || string.IsNullOrWhiteSpace(calendar.Id) ||
             calendar.TimeZone is null || calendar.DefaultSessionOpen >= calendar.DefaultSessionClose ||
             calendar.Holidays is null || calendar.SpecialSessions is null ||
+            calendar.SpecialSessions.Keys.Any(calendar.Holidays.Contains) ||
             calendar.SpecialSessions.Any(item => item.Key != item.Value.Date ||
                 item.Value.Open >= item.Value.Close) || string.IsNullOrWhiteSpace(dataSource) ||
             string.IsNullOrWhiteSpace(dataVersion))
@@ -213,11 +227,12 @@ public static class DatasetQualityCertifier
     }
 
     private static string ExclusionReason(DateTime timestamp, Timeframe timeframe,
-        ExchangeSessionCalendar calendar)
+        DateOnly fromSession, DateOnly toSessionExclusive, ExchangeSessionCalendar calendar)
     {
         var local = TimeZoneInfo.ConvertTimeFromUtc(timestamp, calendar.TimeZone);
         var date = DateOnly.FromDateTime(local);
-        if (!TryGetSession(calendar, date, out var session)) return "outside-declared-session";
+        if (date < fromSession || date >= toSessionExclusive) return "outside-requested-range";
+        if (!TryGetSession(calendar, date, out var session)) return "unexpected-session-date";
         var time = TimeOnly.FromDateTime(local);
         if (time < session.Open || time >= session.Close) return "outside-declared-session";
 
@@ -250,14 +265,38 @@ public static class DatasetQualityCertifier
         if (count > 0) issues.Add(new(code, count, message));
     }
 
+    private static string CalendarFingerprint(ExchangeSessionCalendar calendar)
+    {
+        var builder = new StringBuilder();
+        builder.Append(calendar.TimeZone.Id).Append('|')
+            .Append(calendar.DefaultSessionOpen.ToString("HH:mm:ss.fffffff", CultureInfo.InvariantCulture))
+            .Append('|')
+            .Append(calendar.DefaultSessionClose.ToString("HH:mm:ss.fffffff", CultureInfo.InvariantCulture))
+            .AppendLine();
+        foreach (var holiday in calendar.Holidays.Order())
+            builder.Append("holiday|")
+                .Append(holiday.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)).AppendLine();
+        foreach (var session in calendar.SpecialSessions.OrderBy(item => item.Key))
+            builder.Append("special|")
+                .Append(session.Key.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)).Append('|')
+                .Append(session.Value.Open.ToString("HH:mm:ss.fffffff", CultureInfo.InvariantCulture))
+                .Append('|')
+                .Append(session.Value.Close.ToString("HH:mm:ss.fffffff", CultureInfo.InvariantCulture))
+                .AppendLine();
+        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(builder.ToString())))
+            .ToLowerInvariant();
+    }
+
     private static string Fingerprint(IEnumerable<Candle> candles, Guid instrumentId, Timeframe timeframe,
-        DateOnly from, DateOnly to, string calendarId, string source, string version)
+        DateOnly from, DateOnly to, string calendarSha256, string calendarId, string source,
+        string version)
     {
         var builder = new StringBuilder();
         builder.Append(instrumentId).Append('|').Append((int)timeframe).Append('|')
             .Append(from.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)).Append('|')
             .Append(to.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)).Append('|')
-            .Append(calendarId.Trim()).Append('|').Append(source.Trim()).Append('|')
+            .Append(calendarId.Trim()).Append('|').Append(calendarSha256).Append('|')
+            .Append(source.Trim()).Append('|')
             .Append(version.Trim()).AppendLine();
         foreach (var candle in candles.OrderBy(candle => candle.OpenTimeUtc))
             builder.Append(candle.OpenTimeUtc.ToString("O", CultureInfo.InvariantCulture)).Append('|')

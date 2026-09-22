@@ -113,6 +113,80 @@ public sealed class DatasetQualityCertifierTests
     }
 
     [Fact]
+    public void Candle_on_undeclared_weekend_fails_certification()
+    {
+        var saturday = Monday.AddDays(5);
+        var result = DatasetQualityCertifier.Certify([Bar(saturday, new(11, 0))],
+            InstrumentId, Timeframe.Minute5, saturday, saturday.AddDays(1), Calendar(),
+            "fixture", "v1");
+
+        Assert.False(result.Certificate.Passed);
+        Assert.Equal(1, result.Certificate.ExcludedCandleCount);
+        Assert.Empty(result.CertifiedCandles);
+        Assert.Equal("unexpected-session-date", Assert.Single(result.Certificate.Exclusions).Reason);
+        Assert.Equal(1, Assert.Single(result.Certificate.Issues,
+            issue => issue.Code == "unexpected-session-date").Count);
+    }
+
+    [Fact]
+    public void Candle_on_declared_holiday_fails_certification()
+    {
+        var calendar = new ExchangeSessionCalendar("nse-test", India, new(9, 15), new(15, 30),
+            new HashSet<DateOnly> { Monday }, new Dictionary<DateOnly, ExchangeSession>());
+        var result = DatasetQualityCertifier.Certify([Bar(Monday, new(9, 15))],
+            InstrumentId, Timeframe.Minute5, Monday, Monday.AddDays(1), calendar,
+            "fixture", "v1");
+
+        Assert.False(result.Certificate.Passed);
+        Assert.Equal("unexpected-session-date", Assert.Single(result.Certificate.Exclusions).Reason);
+        Assert.Equal(1, Assert.Single(result.Certificate.Issues,
+            issue => issue.Code == "unexpected-session-date").Count);
+    }
+
+    [Fact]
+    public void Calendar_fingerprint_binds_normal_hours_holidays_and_special_sessions()
+    {
+        var special = new DateOnly(2025, 10, 21);
+        var holidays = new HashSet<DateOnly> { new(2025, 3, 14), new(2025, 2, 26) };
+        var sessions = new Dictionary<DateOnly, ExchangeSession>
+        {
+            [special] = new(special, new(13, 45), new(14, 45))
+        };
+        var firstCalendar = new ExchangeSessionCalendar("same-id", India, new(9, 15),
+            new(15, 30), holidays, sessions);
+        var reorderedCalendar = new ExchangeSessionCalendar("same-id", India, new(9, 15),
+            new(15, 30), new HashSet<DateOnly> { new(2025, 2, 26), new(2025, 3, 14) },
+            new Dictionary<DateOnly, ExchangeSession>(sessions));
+        var changedHours = firstCalendar with
+        {
+            SpecialSessions = new Dictionary<DateOnly, ExchangeSession>
+            {
+                [special] = new(special, new(13, 30), new(14, 45))
+            }
+        };
+        var changedHoliday = firstCalendar with
+        {
+            Holidays = new HashSet<DateOnly> { new(2025, 2, 26) }
+        };
+        var changedNormalHours = firstCalendar with { DefaultSessionOpen = new(9, 10) };
+
+        DatasetQualityCertificate Certify(ExchangeSessionCalendar calendar) =>
+            DatasetQualityCertifier.Certify([], InstrumentId, Timeframe.Minute5,
+                Monday, Monday.AddDays(1), calendar, "fixture", "v1").Certificate;
+
+        var first = Certify(firstCalendar);
+        var reordered = Certify(reorderedCalendar);
+        Assert.Equal(first.CalendarSha256, reordered.CalendarSha256);
+        Assert.Equal(first.DatasetSha256, reordered.DatasetSha256);
+        foreach (var changed in new[] { changedHours, changedHoliday, changedNormalHours })
+        {
+            var certificate = Certify(changed);
+            Assert.NotEqual(first.CalendarSha256, certificate.CalendarSha256);
+            Assert.NotEqual(first.DatasetSha256, certificate.DatasetSha256);
+        }
+    }
+
+    [Fact]
     public void Missing_Muhurat_bar_and_duplicate_timestamp_fail()
     {
         var muhurat = new DateOnly(2025, 10, 21);
@@ -146,6 +220,10 @@ public sealed class DatasetQualityCertifierTests
         Assert.Equal(new TimeOnly(13, 45), result.SpecialSessions[new(2025, 10, 21)].Open);
         Assert.Throws<FormatException>(() => DatasetQualityCertifier.ParseCalendar(
             ["special,2025-02-01,15:30,09:15"]));
+        Assert.Throws<FormatException>(() => DatasetQualityCertifier.ParseCalendar(
+            ["holiday,2025-10-21", "special,2025-10-21,13:45,14:45"]));
+        Assert.Throws<FormatException>(() => DatasetQualityCertifier.ParseCalendar(
+            ["special,2025-10-21,13:45,14:45", "holiday,2025-10-21"]));
     }
 
     private static ExchangeSessionCalendar Calendar(

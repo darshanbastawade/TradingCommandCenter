@@ -1,11 +1,12 @@
-# Verification — September 18, 2026
+# Verification — September 22, 2026
 
 ## M16.1 exchange calendar and certified research slice
 
-- Added full-day holiday and date-specific session parsing with special-session precedence over weekends and holidays. The supplied 2025 calendar declares Budget Saturday (09:15–15:30) and Muhurat trading (13:45–14:45).
-- The research command reads complete local dates, records every excluded observation, and sends only the certified slice to all deterministic research stages. Outside-session observations are acceptable audited exclusions; duplicates, missing expected bars, and in-session off-grid bars still fail certification.
+- Added full-day holiday and date-specific session parsing with special-session precedence over normal weekend closure. The supplied 2025 calendar declares Budget Saturday (09:15–15:30) and Muhurat trading (13:45–14:45). Holiday/special conflicts now fail parsing.
+- The research command reads complete local dates, records every excluded observation, and sends only the certified slice to all deterministic research stages. Post-close observations on declared trading dates remain acceptable audited exclusions; candles on closed dates, duplicates, missing expected bars, and in-session off-grid bars fail certification.
+- The certificate now includes a normalized calendar SHA-256, which is also bound into the dataset SHA-256. Changing holidays or session hours changes the research identity even when the calendar ID is unchanged.
 - The downloaded 2025 NIFTY files contain 18,622 unique raw candles. Calendar verification produced 18,612 expected/certified candles, 10 post-close exclusions, and zero missing bars.
-- Full solution build passed with 0 warnings and 0 errors. All 246 tests passed: UnitTests 53, IntegrationTests 65, StrategyValidationTests 43, BacktestTests 85. No tests skipped.
+- Full solution build passed with 0 warnings and 0 errors. All 249 tests passed: UnitTests 56, IntegrationTests 65, StrategyValidationTests 43, BacktestTests 85. No tests skipped.
 
 ## M28 native candidate verification
 
