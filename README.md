@@ -1,6 +1,6 @@
-# Trading Command Center — M34
+# Trading Command Center — M37
 
-SQL Server is configured for `DESKTOP-EF1NCS7 / Market`. See [M34 qualified strategy pipeline](docs/M34.md), [M33 Astra Research Analyst V2](docs/M33.md), [M32 Strategy Certificate V2](docs/M32.md), [M31 robustness suite](docs/M31.md), [M30 cross-engine comparison](docs/M30.md), and [M29 LEAN adapter](docs/M29.md). Local-first modular monolith. C# owns authoritative calculations and hard risk gates; vectorbt screens research candidates; LEAN can independently validate runs after a separate algorithm is configured; SQL and immutable artifacts preserve evidence; Azure OpenAI explains verified results; the operator retains final authority.
+SQL Server is configured for `DESKTOP-EF1NCS7 / Market`. See [M37 controlled automation](docs/M37.md), [M36 live reconciliation](docs/M36.md), [M35 paper qualification](docs/M35.md), [M34 qualified strategy pipeline](docs/M34.md), [M33 Astra Research Analyst V2](docs/M33.md), [M32 Strategy Certificate V2](docs/M32.md), and [M31 robustness suite](docs/M31.md). Local-first modular monolith. C# owns authoritative calculations and hard risk gates; vectorbt screens research candidates; LEAN can independently validate runs after a separate algorithm is configured; SQL and immutable artifacts preserve evidence; Azure OpenAI explains verified results; the operator retains final authority.
 
 ## Start in VS Code
 
@@ -62,6 +62,9 @@ Versions are centralized in `Directory.Packages.props`; each project commits `pa
 - M32 binds research, native, LEAN comparison and robustness evidence into Strategy Certificate V2.
 - M33 asks Astra for a tool-free structured interpretation of the complete V2 evidence package.
 - M34 combines deterministic qualification, verified analysis and an operator review reference without granting trading authority.
+- M35 qualifies verified M22 paper evidence against durable session, sample, profitability and rejection gates.
+- M36 reconciles expected cash, positions and order state against a fresh broker snapshot and fails on every difference.
+- M37 produces a short-lived, single-action automation eligibility decision; it never submits a broker order itself.
 - Tests: Microsoft.NET.Test.Sdk, xUnit, Visual Studio test adapter, Coverlet collector; integration tests also use ASP.NET Core MVC Testing, and unit tests use the dependency-injection container to verify options registration.
 - ASP.NET Core and Blazor use the shared framework. No extra UI framework is needed.
 
@@ -107,4 +110,4 @@ Development appsettings uses the supplied Windows-authenticated SQL Server conne
 
 A standalone repository is initialized on `main`. No remote is configured and nothing is published. `.gitignore` excludes builds, test results, local settings, keys and secrets; lock files and VS Code configuration are tracked.
 
-The repository is local. M26–M31 build the research and validation evidence chain. M32 binds it, M33 explains it, and M34 requires an operator review reference before the strategy can proceed to future paper qualification. Existing M22/M23 execution behavior remains unchanged: the shared kill switch is engaged and both direct gates are disabled in committed configuration.
+The repository is local. M26–M31 build the research and validation evidence chain. M32 binds it, M33 explains it, M34 records operator review, M35 qualifies paper evidence, M36 reconciles live state, and M37 issues bounded eligibility. Existing M22/M23 execution behavior remains unchanged: the shared kill switch is engaged and both direct gates are disabled. The separate M37 automation switch and kill switch also default to disabled and engaged.

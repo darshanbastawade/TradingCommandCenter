@@ -12,6 +12,7 @@ using System.Text.Json;
 using Trading.Backtesting.Engines;
 using Trading.Backtesting.Research;
 using Trading.ExternalValidation.Lean;
+using Trading.Execution.Automation;
 
 var command = MarketDataCommands.IsCommand(args) || OosTestCommands.IsCommand(args) ||
     WalkForwardCommands.IsCommand(args) || ResearchIntegrityCommands.IsCommand(args) ||
@@ -22,10 +23,12 @@ var command = MarketDataCommands.IsCommand(args) || OosTestCommands.IsCommand(ar
     BacktestSpecificationCommands.IsCommand(args) || BacktestEngineCommands.IsCommand(args) ||
     ResearchCandidateCommands.IsCommand(args) || CrossEngineComparisonCommands.IsCommand(args) ||
     RobustnessSuiteCommands.IsCommand(args) || StrategyCertificateV2Commands.IsCommand(args) ||
-    AstraResearchAnalystV2Commands.IsCommand(args) || QualifiedStrategyCommands.IsCommand(args);
+    AstraResearchAnalystV2Commands.IsCommand(args) || QualifiedStrategyCommands.IsCommand(args) ||
+    PaperQualificationCommands.IsCommand(args) || LiveReconciliationCommands.IsCommand(args) ||
+    ControlledAutomationCommands.IsCommand(args);
 if (args.Length > 0 && !command && !args[0].StartsWith("--", StringComparison.Ordinal))
 {
-    Console.Error.WriteLine("Unknown command. See docs/M34.md for the qualified strategy pipeline and linked milestone documentation.");
+    Console.Error.WriteLine("Unknown command. See docs/M37.md for the controlled progression workflow and linked milestone documentation.");
     Environment.ExitCode = 2;
     return;
 }
@@ -41,6 +44,7 @@ builder.Services.AddTradingAIConfiguration(builder.Configuration);
 builder.Services.AddTradingPersistence(builder.Configuration);
 var zerodhaOptions = builder.Configuration.GetSection(ZerodhaFeedOptions.SectionName).Get<ZerodhaFeedOptions>() ?? new();
 var liveTradingOptions = builder.Configuration.GetSection("LiveTrading").Get<Trading.Execution.Live.LiveTradingSettings>() ?? new();
+var controlledAutomationOptions = builder.Configuration.GetSection("ControlledAutomation").Get<ControlledAutomationSettings>() ?? new();
 builder.Services.AddSingleton(zerodhaOptions);
 builder.Services.AddHttpClient<ILiveBrokerClient, ZerodhaTradingClient>(client => client.Timeout = TimeSpan.FromSeconds(15));
 builder.Services.AddSingleton(new BacktestEngineDescriptor(NativeBacktestEngine.Id,
@@ -66,7 +70,16 @@ if (command)
     Console.CancelKeyPress += cancel;
     try
     {
-        Environment.ExitCode = QualifiedStrategyCommands.IsCommand(args)
+        Environment.ExitCode = ControlledAutomationCommands.IsCommand(args)
+            ? await ControlledAutomationCommands.RunAsync(args, builder.Configuration, Console.Out,
+                Console.Error, cancellation.Token)
+            : LiveReconciliationCommands.IsCommand(args)
+            ? await LiveReconciliationCommands.RunAsync(args, builder.Configuration, Console.Out,
+                Console.Error, cancellation.Token)
+            : PaperQualificationCommands.IsCommand(args)
+            ? await PaperQualificationCommands.RunAsync(args, builder.Configuration, Console.Out,
+                Console.Error, cancellation.Token)
+            : QualifiedStrategyCommands.IsCommand(args)
             ? await QualifiedStrategyCommands.RunAsync(args, builder.Configuration, Console.Out, Console.Error,
                 cancellation.Token)
             : AstraResearchAnalystV2Commands.IsCommand(args)
@@ -120,7 +133,7 @@ app.MapHealthChecks("/health", new HealthCheckOptions { Predicate = _ => false }
 app.MapHealthChecks("/health/ready", new HealthCheckOptions { Predicate = check => check.Tags.Contains("ready") });
 app.MapGet("/api/status", () => new
 {
-    milestone = "M34",
+    milestone = "M37",
     strategies = new[]
     {
         "vwap-ema-trend-breakout-v1",
@@ -148,6 +161,11 @@ app.MapGet("/api/status", () => new
     strategyCertificateV2 = "cross-engine-and-robustness-bound-v2",
     astraResearchAnalystV2 = "structured-complete-evidence-analysis-v2",
     qualifiedStrategyPipeline = "deterministic-evidence-plus-human-approval-v1",
+    paperQualification = "verified-m22-session-gates-v1",
+    liveReconciliation = "cash-position-and-order-reconciliation-v1",
+    controlledAutomation = "short-lived-single-action-eligibility-v1",
+    controlledAutomationEnabled = controlledAutomationOptions.Enabled,
+    controlledAutomationKillSwitchEngaged = controlledAutomationOptions.KillSwitchEngaged,
     liveTradingKillSwitchEngaged = liveTradingOptions.KillSwitchEngaged,
     directLiveOrdersEnabled = !liveTradingOptions.KillSwitchEngaged && zerodhaOptions.AllowLiveOrders &&
         liveTradingOptions.AllowDirectOrders,
