@@ -11,6 +11,7 @@ using Trading.Application.Backtesting;
 using System.Text.Json;
 using Trading.Backtesting.Engines;
 using Trading.Backtesting.Research;
+using Trading.ExternalValidation.Lean;
 
 var command = MarketDataCommands.IsCommand(args) || OosTestCommands.IsCommand(args) ||
     WalkForwardCommands.IsCommand(args) || ResearchIntegrityCommands.IsCommand(args) ||
@@ -19,10 +20,12 @@ var command = MarketDataCommands.IsCommand(args) || OosTestCommands.IsCommand(ar
     BacktestAnalystCommands.IsCommand(args) || MarketFeedCommands.IsCommand(args) ||
     PaperTradingCommands.IsCommand(args) || LiveTradingCommands.IsCommand(args) ||
     BacktestSpecificationCommands.IsCommand(args) || BacktestEngineCommands.IsCommand(args) ||
-    ResearchCandidateCommands.IsCommand(args);
+    ResearchCandidateCommands.IsCommand(args) || CrossEngineComparisonCommands.IsCommand(args) ||
+    RobustnessSuiteCommands.IsCommand(args) || StrategyCertificateV2Commands.IsCommand(args) ||
+    AstraResearchAnalystV2Commands.IsCommand(args) || QualifiedStrategyCommands.IsCommand(args);
 if (args.Length > 0 && !command && !args[0].StartsWith("--", StringComparison.Ordinal))
 {
-    Console.Error.WriteLine("Unknown command. See docs/M28.md for available candidate, engine, specification, research, feed, paper, live, analysis, certificate, risk, and database commands.");
+    Console.Error.WriteLine("Unknown command. See docs/M34.md for the qualified strategy pipeline and linked milestone documentation.");
     Environment.ExitCode = 2;
     return;
 }
@@ -43,6 +46,12 @@ builder.Services.AddHttpClient<ILiveBrokerClient, ZerodhaTradingClient>(client =
 builder.Services.AddSingleton(new BacktestEngineDescriptor(NativeBacktestEngine.Id,
     NativeBacktestEngine.Version, NativeBacktestEngine.EngineRole));
 builder.Services.AddScoped<IBacktestEngine, NativeBacktestEngine>();
+var leanOptions = builder.Configuration.GetSection("Lean").Get<LeanOptions>() ?? new();
+builder.Services.AddSingleton(leanOptions);
+builder.Services.AddSingleton(new BacktestEngineDescriptor(LeanBacktestEngine.Id,
+    $"{LeanBacktestEngine.AdapterVersion}:{leanOptions.Image}", BacktestEngineRole.IndependentValidation));
+builder.Services.AddSingleton<ILeanProcessRunner, LeanProcessRunner>();
+builder.Services.AddScoped<IBacktestEngine, LeanBacktestEngine>();
 var vectorbtOptions = builder.Configuration.GetSection("VectorbtWorker").Get<VectorbtWorkerOptions>() ?? new();
 builder.Services.AddSingleton(vectorbtOptions);
 builder.Services.AddSingleton<IResearchBacktestWorker, VectorbtResearchWorker>();
@@ -57,8 +66,21 @@ if (command)
     Console.CancelKeyPress += cancel;
     try
     {
-        Environment.ExitCode = OosTestCommands.IsCommand(args)
+        Environment.ExitCode = QualifiedStrategyCommands.IsCommand(args)
+            ? await QualifiedStrategyCommands.RunAsync(args, builder.Configuration, Console.Out, Console.Error,
+                cancellation.Token)
+            : AstraResearchAnalystV2Commands.IsCommand(args)
+                ? await AstraResearchAnalystV2Commands.RunAsync(args, app.Services, Console.Out, Console.Error,
+                    cancellation.Token)
+            : StrategyCertificateV2Commands.IsCommand(args)
+                ? await StrategyCertificateV2Commands.RunAsync(args, builder.Configuration, Console.Out,
+                    Console.Error, cancellation.Token)
+            : RobustnessSuiteCommands.IsCommand(args)
+            ? await RobustnessSuiteCommands.RunAsync(args, Console.Out, Console.Error, cancellation.Token)
+            : OosTestCommands.IsCommand(args)
             ? await OosTestCommands.RunAsync(args, app.Services, Console.Out, Console.Error, cancellation.Token)
+            : CrossEngineComparisonCommands.IsCommand(args)
+                ? await CrossEngineComparisonCommands.RunAsync(args, Console.Out, Console.Error, cancellation.Token)
             : WalkForwardCommands.IsCommand(args)
                 ? await WalkForwardCommands.RunAsync(args, app.Services, Console.Out, Console.Error, cancellation.Token)
                 : ResearchIntegrityCommands.IsCommand(args)
@@ -98,7 +120,7 @@ app.MapHealthChecks("/health", new HealthCheckOptions { Predicate = _ => false }
 app.MapHealthChecks("/health/ready", new HealthCheckOptions { Predicate = check => check.Tags.Contains("ready") });
 app.MapGet("/api/status", () => new
 {
-    milestone = "M28",
+    milestone = "M34",
     strategies = new[]
     {
         "vwap-ema-trend-breakout-v1",
@@ -120,6 +142,12 @@ app.MapGet("/api/status", () => new
     vectorbtResearchWorker = "vectorbt-1.1.0-research-exploration",
     parameterCandidateStore = "immutable-sweep-and-candidate-evidence-v1",
     nativeCandidateVerification = "authoritative-native-replay-v1",
+    leanExternalValidator = "independent-validation-adapter-v1",
+    crossEngineComparison = "trade-by-trade-native-lean-reconciliation-v1",
+    robustnessSuite = "monte-carlo-bootstrap-and-execution-stress-v1",
+    strategyCertificateV2 = "cross-engine-and-robustness-bound-v2",
+    astraResearchAnalystV2 = "structured-complete-evidence-analysis-v2",
+    qualifiedStrategyPipeline = "deterministic-evidence-plus-human-approval-v1",
     liveTradingKillSwitchEngaged = liveTradingOptions.KillSwitchEngaged,
     directLiveOrdersEnabled = !liveTradingOptions.KillSwitchEngaged && zerodhaOptions.AllowLiveOrders &&
         liveTradingOptions.AllowDirectOrders,

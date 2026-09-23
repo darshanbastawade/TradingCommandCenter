@@ -21,7 +21,8 @@ public sealed class ArchitectureTests
             project = Path.GetFullPath(project);
             if (!visited.Add(project)) return;
             Assert.DoesNotContain(Path.GetFileNameWithoutExtension(project),
-                new[] { "Trading.AI", "Trading.Infrastructure", "Trading.Execution", "Trading.Api", "Trading.Web" });
+                new[] { "Trading.AI", "Trading.Infrastructure", "Trading.Execution", "Trading.ExternalValidation",
+                    "Trading.Api", "Trading.Web" });
             foreach (var reference in XDocument.Load(project).Descendants("ProjectReference"))
                 Inspect(Path.Combine(Path.GetDirectoryName(project)!, reference.Attribute("Include")!.Value));
         }

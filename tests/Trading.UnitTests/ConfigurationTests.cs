@@ -2,6 +2,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Trading.AI;
+using Trading.Application.AI;
 
 namespace Trading.UnitTests;
 
@@ -17,6 +18,8 @@ public sealed class ConfigurationTests
         Assert.Empty(options.ApiKey);
         Assert.Empty(options.Endpoint);
         Assert.Empty(options.Deployment);
+        Assert.IsType<AzureOpenAIResearchAnalystV2>(
+            services.GetRequiredService<IAstraResearchAnalystV2>());
     }
 
     [Fact]

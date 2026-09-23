@@ -13,6 +13,7 @@ public static class DependencyInjection
             .Bind(configuration.GetSection(AzureOpenAIOptions.SectionName));
         services.AddSingleton<HttpClient>();
         services.AddSingleton<IBacktestAnalyst, AzureOpenAIBacktestAnalyst>();
+        services.AddSingleton<IAstraResearchAnalystV2, AzureOpenAIResearchAnalystV2>();
         return services;
     }
 }

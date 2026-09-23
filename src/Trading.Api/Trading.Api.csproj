@@ -6,6 +6,7 @@
     <ProjectReference Include="../Trading.MarketData/Trading.MarketData.csproj" />
     <ProjectReference Include="../Trading.Strategies/Trading.Strategies.csproj" />
     <ProjectReference Include="../Trading.Backtesting/Trading.Backtesting.csproj" />
+    <ProjectReference Include="../Trading.ExternalValidation/Trading.ExternalValidation.csproj" />
     <ProjectReference Include="../Trading.Risk/Trading.Risk.csproj" />
     <ProjectReference Include="../Trading.Execution/Trading.Execution.csproj" />
     <ProjectReference Include="../Trading.AI/Trading.AI.csproj" />

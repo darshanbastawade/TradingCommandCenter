@@ -117,6 +117,12 @@
       "trading.domain": {
         "type": "Project"
       },
+      "trading.externalvalidation": {
+        "type": "Project",
+        "dependencies": {
+          "Trading.Application": "[1.0.0, )"
+        }
+      },
       "trading.marketdata": {
         "type": "Project",
         "dependencies": {

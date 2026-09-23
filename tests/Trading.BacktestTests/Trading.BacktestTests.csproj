@@ -7,5 +7,6 @@
     <PackageReference Include="coverlet.collector" PrivateAssets="all" />
     <Using Include="Xunit" />
     <ProjectReference Include="../../src/Trading.Backtesting/Trading.Backtesting.csproj" />
+    <ProjectReference Include="../../src/Trading.ExternalValidation/Trading.ExternalValidation.csproj" />
   </ItemGroup>
 </Project>

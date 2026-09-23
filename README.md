@@ -1,6 +1,6 @@
-# Trading Command Center — M28
+# Trading Command Center — M34
 
-SQL Server is configured for `DESKTOP-EF1NCS7 / Market`. See [M28 native candidate verification](docs/M28.md), [M27 parameter sweep and candidate store](docs/M27.md), [M26 vectorbt worker](docs/M26.md), [M25 engine abstraction](docs/M25.md), and [M24 universal specification](docs/M24.md). Local-first modular monolith. C# owns authoritative calculations and hard risk gates; vectorbt screens research candidates; SQL preserves evidence; Azure OpenAI explains certified results; the operator retains final authority.
+SQL Server is configured for `DESKTOP-EF1NCS7 / Market`. See [M34 qualified strategy pipeline](docs/M34.md), [M33 Astra Research Analyst V2](docs/M33.md), [M32 Strategy Certificate V2](docs/M32.md), [M31 robustness suite](docs/M31.md), [M30 cross-engine comparison](docs/M30.md), and [M29 LEAN adapter](docs/M29.md). Local-first modular monolith. C# owns authoritative calculations and hard risk gates; vectorbt screens research candidates; LEAN can independently validate runs after a separate algorithm is configured; SQL and immutable artifacts preserve evidence; Azure OpenAI explains verified results; the operator retains final authority.
 
 ## Start in VS Code
 
@@ -31,6 +31,7 @@ On September 14, 2026, this machine has SDK 10.0.401 and runtime 10.0.12 install
 | MarketData | Underlying candle and observed option-quote imports | Application |
 | Strategies | Strategy contracts, evidence and deterministic hypotheses | Domain |
 | Backtesting | Deterministic fills, Indian costs, metrics, validation, ranking and certificates | Application, Strategies, Risk, MarketData |
+| ExternalValidation | LEAN process, input and result boundary | Application |
 | Risk | Capital pools, loss limits, pre-trade hard gates and whole-lot sizing | Domain |
 | Execution | Replay, read-only feeds, paper fills, and guarded Zerodha LIMIT-entry adapter | Application, Risk |
 | AI | Guarded Azure OpenAI Responses client and structured backtest analyst | Application |
@@ -46,7 +47,7 @@ All names carry the `Trading.` prefix. Dependencies flow inward. Domain has no N
 Versions are centralized in `Directory.Packages.props`; each project commits `packages.lock.json` for repeatable restores.
 
 - Infrastructure: EF Core SQL Server and EF Core Design (private tooling dependency). DbContext, market-data, immutable research, certificate and AI-analysis stores, and migrations are implemented. Database updates are an explicit CLI step.
-- AI: Microsoft options binding plus a guarded `HttpClient` Responses API adapter. M20 uses no third-party agent framework and enables no model tools.
+- AI: Microsoft options binding plus guarded V1 and V2 `HttpClient` Responses API adapters. M33 supplies the complete evidence bundle with strict Structured Outputs, `store: false`, and no model tools.
 - Execution: framework WebSocket support plus an explicit Kite binary parser. M21 adds no broker SDK or NuGet package.
 - M22 adds a deterministic paper fill/ledger engine and no package or broker order client.
 - M23 uses framework `HttpClient` for Zerodha funds, positions, day orders, quotes and guarded LIMIT buys. The shared kill switch defaults to engaged and both direct-order gates default to false.
@@ -55,6 +56,12 @@ Versions are centralized in `Directory.Packages.props`; each project commits `pa
 - M26 pins vectorbt 1.1.0 in an isolated Python worker and labels its output research-only.
 - M27 adds bounded deterministic parameter-grid expansion and immutable SQL sweep/candidate evidence.
 - M28 independently verifies selected candidates with native C# and preserves each complete native run.
+- M29 adds a guarded external LEAN engine adapter; actual LEAN execution requires a separately implemented and configured LEAN project.
+- M30 compares sealed native and LEAN runs trade by trade and writes a hash-bound divergence artifact.
+- M31 runs seeded Monte Carlo, bootstrap, slippage, cost, entry-delay and missed-trade robustness analysis over verified native evidence.
+- M32 binds research, native, LEAN comparison and robustness evidence into Strategy Certificate V2.
+- M33 asks Astra for a tool-free structured interpretation of the complete V2 evidence package.
+- M34 combines deterministic qualification, verified analysis and an operator review reference without granting trading authority.
 - Tests: Microsoft.NET.Test.Sdk, xUnit, Visual Studio test adapter, Coverlet collector; integration tests also use ASP.NET Core MVC Testing, and unit tests use the dependency-injection container to verify options registration.
 - ASP.NET Core and Blazor use the shared framework. No extra UI framework is needed.
 
@@ -64,7 +71,7 @@ When intentionally updating a dependency, edit the central version, run `dotnet 
 
 The API owns configuration. Default ASP.NET Core ordering applies: appsettings.json → environment-specific appsettings → User Secrets in Development → environment variables → command-line arguments (later values win).
 
-The committed AzureOpenAI section has empty Endpoint and Deployment values. ApiKey exists only in the options type; keep its real value outside Git. A key is needed only when you intentionally run `analyze-backtest`. The deployment is your Azure deployment name for GPT-6 Astra, not a hard-coded model name.
+The committed AzureOpenAI section has empty Endpoint and Deployment values. ApiKey exists only in the options type; keep its real value outside Git. A key is needed only when you intentionally run `analyze-backtest` or `analyze-research-v2`. The deployment is your Azure deployment name for GPT-6 Astra, not a hard-coded model name.
 
 When ready, run these commands locally from the repository root, replacing the example values:
 
@@ -100,13 +107,4 @@ Development appsettings uses the supplied Windows-authenticated SQL Server conne
 
 A standalone repository is initialized on `main`. No remote is configured and nothing is published. `.gitignore` excludes builds, test results, local settings, keys and secrets; lock files and VS Code configuration are tracked.
 
-The implementation through M28 is local and uncommitted. To create the initial commit, configure your identity if necessary and run:
-
-```powershell
-git config user.name "YOUR NAME"
-git config user.email "YOUR EMAIL"
-git add .
-git commit -m "Add trading command center through M28 candidate verification"
-```
-
-M26–M28 create a one-way research pipeline: vectorbt proposes, SQL preserves, and native C# verifies. Research scores and native verification do not qualify a strategy by themselves. M23 live behavior remains unchanged: the shared kill switch is engaged and both direct gates are disabled in committed configuration.
+The repository is local. M26–M31 build the research and validation evidence chain. M32 binds it, M33 explains it, and M34 requires an operator review reference before the strategy can proceed to future paper qualification. Existing M22/M23 execution behavior remains unchanged: the shared kill switch is engaged and both direct gates are disabled in committed configuration.

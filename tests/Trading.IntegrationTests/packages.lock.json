@@ -687,6 +687,7 @@
           "Trading.Application": "[1.0.0, )",
           "Trading.Backtesting": "[1.0.0, )",
           "Trading.Execution": "[1.0.0, )",
+          "Trading.ExternalValidation": "[1.0.0, )",
           "Trading.Infrastructure": "[1.0.0, )",
           "Trading.MarketData": "[1.0.0, )",
           "Trading.Risk": "[1.0.0, )",
@@ -717,6 +718,12 @@
         "dependencies": {
           "Trading.Application": "[1.0.0, )",
           "Trading.Risk": "[1.0.0, )"
+        }
+      },
+      "trading.externalvalidation": {
+        "type": "Project",
+        "dependencies": {
+          "Trading.Application": "[1.0.0, )"
         }
       },
       "trading.infrastructure": {

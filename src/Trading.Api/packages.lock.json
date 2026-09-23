@@ -230,6 +230,12 @@
           "Trading.Risk": "[1.0.0, )"
         }
       },
+      "trading.externalvalidation": {
+        "type": "Project",
+        "dependencies": {
+          "Trading.Application": "[1.0.0, )"
+        }
+      },
       "trading.infrastructure": {
         "type": "Project",
         "dependencies": {
