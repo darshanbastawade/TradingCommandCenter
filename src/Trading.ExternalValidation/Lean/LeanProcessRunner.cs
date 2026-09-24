@@ -10,10 +10,15 @@ public sealed class LeanProcessRunner(LeanOptions options) : ILeanProcessRunner
         if (string.IsNullOrWhiteSpace(options.CliExecutable) ||
             string.IsNullOrWhiteSpace(options.ProjectDirectory) ||
             !Directory.Exists(options.ProjectDirectory) ||
-            !HasExplicitImageVersion(options.Image) ||
+            !HasImmutableImageDigest(options.Image) ||
             options.TimeoutSeconds is < 1 or > 7200)
             throw new InvalidOperationException(
-                "LEAN requires a local CLI executable, project directory, explicit image tag or digest, and valid timeout.");
+                "LEAN requires a local CLI executable, project directory, immutable image digest, and valid timeout.");
+        var project = LeanAlgorithmProject.Verify(options.ProjectDirectory, input.StrategyId);
+        if (project.AlgorithmSourceRevision != input.AlgorithmSourceRevision ||
+            project.StrategyImplementationVersion != input.StrategyImplementationVersion ||
+            options.Image != input.LeanImage)
+            throw new InvalidDataException("LEAN project or image changed after request packaging.");
         if (File.Exists(input.EvidencePath))
             throw new IOException("LEAN evidence output already exists.");
         var start = new ProcessStartInfo(options.CliExecutable)
@@ -61,6 +66,7 @@ public sealed class LeanProcessRunner(LeanOptions options) : ILeanProcessRunner
             {
                 var name = Path.GetFileNameWithoutExtension(path);
                 return !name.EndsWith("-order-events", StringComparison.OrdinalIgnoreCase) &&
+                    !name.EndsWith("-summary", StringComparison.OrdinalIgnoreCase) &&
                     !name.EndsWith("-alpha-results", StringComparison.OrdinalIgnoreCase) &&
                     !name.EndsWith("-alpha-insights", StringComparison.OrdinalIgnoreCase) &&
                     !name.StartsWith("data-monitor-report-", StringComparison.OrdinalIgnoreCase);
@@ -77,14 +83,11 @@ public sealed class LeanProcessRunner(LeanOptions options) : ILeanProcessRunner
         return line.Length == 0 ? "no diagnostic was returned" : line[..Math.Min(line.Length, 512)];
     }
 
-    private static bool HasExplicitImageVersion(string? image)
+    private static bool HasImmutableImageDigest(string? image)
     {
-        if (string.IsNullOrWhiteSpace(image) || image.EndsWith(":latest", StringComparison.OrdinalIgnoreCase))
-            return false;
+        if (string.IsNullOrWhiteSpace(image)) return false;
         var digest = image.IndexOf("@sha256:", StringComparison.OrdinalIgnoreCase);
-        if (digest >= 0) return image[(digest + 8)..].Length == 64 &&
+        return digest > 0 && image[(digest + 8)..].Length == 64 &&
             image[(digest + 8)..].All(Uri.IsHexDigit);
-        return image.LastIndexOf(':') > image.LastIndexOf('/') &&
-            !image.EndsWith(':') && !image.Contains(' ');
     }
 }

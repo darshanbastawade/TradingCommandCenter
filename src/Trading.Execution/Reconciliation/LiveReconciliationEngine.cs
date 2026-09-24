@@ -7,6 +7,7 @@ namespace Trading.Execution.Reconciliation;
 
 public enum ReconciledOrderStatus { Pending = 1, Submitted = 2, PartiallyFilled = 3, Filled = 4, Cancelled = 5, Rejected = 6 }
 public enum LiveReconciliationStatus { Reconciled = 1, Divergent = 2 }
+public enum LiveReconciliationSourceMode { DiagnosticFile = 1, AuthoritativeBroker = 2 }
 
 public sealed record ReconciliationPosition(uint InstrumentToken, string Exchange, string TradingSymbol,
     string Product, int Quantity);
@@ -22,7 +23,13 @@ public sealed record LiveReconciliationPolicy
 {
     public string PolicyVersion { get; init; } = "live-reconciliation-v1";
     public int MaximumSnapshotAgeSeconds { get; init; } = 30;
+    public int MaximumInternalStateAgeSeconds { get; init; } = 30;
+    public decimal CashTolerance { get; init; } = 1m;
 }
+
+public sealed record LiveReconciliationProvenance(LiveReconciliationSourceMode SourceMode,
+    string BrokerProvider, string BrokerAccountId, string BrokerSnapshotSha256,
+    string InternalLedgerSha256, string InternalStateRevision);
 
 public sealed record LiveReconciliationArtifact(int SchemaVersion, Guid ReconciliationId,
     DateTime ReconciledAtUtc, string PolicyVersion, Guid PaperQualificationId,
@@ -30,7 +37,10 @@ public sealed record LiveReconciliationArtifact(int SchemaVersion, Guid Reconcil
     decimal ExpectedAvailableCash, decimal BrokerAvailableCash, decimal CashDifference,
     int ExpectedPositionCount, int BrokerPositionCount, int InternalOrderCount, int BrokerOrderCount,
     LiveReconciliationStatus Status, IReadOnlyList<string> DiscrepancyCodes,
-    bool EligibleForControlledAutomation, string ReconciliationSha256);
+    bool EligibleForControlledAutomation, string ReconciliationSha256,
+    LiveReconciliationSourceMode? SourceMode = null, string? BrokerProvider = null,
+    string? BrokerAccountId = null, string? BrokerSnapshotSha256 = null,
+    string? InternalLedgerSha256 = null, string? InternalStateRevision = null);
 
 public static class LiveReconciliationEngine
 {
@@ -39,7 +49,8 @@ public static class LiveReconciliationEngine
 
     public static LiveReconciliationArtifact Reconcile(Guid paperQualificationId,
         string paperQualificationSha256, string strategyId, LiveReconciliationSnapshot snapshot,
-        DateTime reconciledAtUtc, LiveReconciliationPolicy? policy = null)
+        DateTime reconciledAtUtc, LiveReconciliationPolicy? policy = null,
+        LiveReconciliationProvenance? provenance = null)
     {
         policy ??= new(); Validate(paperQualificationId, paperQualificationSha256, strategyId,
             snapshot, reconciledAtUtc, policy);
@@ -50,19 +61,26 @@ public static class LiveReconciliationEngine
         CompareOrders(snapshot.InternalOrders, snapshot.BrokerOrders, discrepancies);
         var status = discrepancies.Count == 0 ? LiveReconciliationStatus.Reconciled : LiveReconciliationStatus.Divergent;
         var inputHash = Digest(snapshot);
+        var provenanceHash = provenance is null ? string.Empty : Digest(provenance);
         var id = new Guid(SHA256.HashData(Encoding.UTF8.GetBytes(
-            $"{policy.PolicyVersion}|{paperQualificationSha256}|{inputHash}"))[..16]);
-        return Seal(new(1, id, reconciledAtUtc, policy.PolicyVersion.Trim(), paperQualificationId,
+            $"{policy.PolicyVersion}|{paperQualificationSha256}|{inputHash}|{provenanceHash}"))[..16]);
+        var authoritative = provenance?.SourceMode == LiveReconciliationSourceMode.AuthoritativeBroker;
+        return Seal(new(provenance is null ? 1 : 2, id, reconciledAtUtc, policy.PolicyVersion.Trim(), paperQualificationId,
             paperQualificationSha256.ToLowerInvariant(), strategyId.Trim(), snapshot.AsOfUtc,
             snapshot.ExpectedAvailableCash, snapshot.BrokerAvailableCash, cashDifference,
             snapshot.ExpectedPositions.Count, snapshot.BrokerPositions.Count, snapshot.InternalOrders.Count,
             snapshot.BrokerOrders.Count, status, discrepancies.ToArray(),
-            status == LiveReconciliationStatus.Reconciled, string.Empty));
+            status == LiveReconciliationStatus.Reconciled && (provenance is null || authoritative), string.Empty,
+            provenance?.SourceMode, provenance?.BrokerProvider, provenance?.BrokerAccountId,
+            provenance?.BrokerSnapshotSha256, provenance?.InternalLedgerSha256,
+            provenance?.InternalStateRevision));
     }
 
     public static LiveReconciliationArtifact Seal(LiveReconciliationArtifact value)
     {
-        if (value.SchemaVersion != 1 || value.ReconciliationId == Guid.Empty ||
+        var expectedEligibility = value.Status == LiveReconciliationStatus.Reconciled &&
+            (value.SchemaVersion == 1 || value.SourceMode == LiveReconciliationSourceMode.AuthoritativeBroker);
+        if (value.SchemaVersion is not (1 or 2) || value.ReconciliationId == Guid.Empty ||
             value.PaperQualificationId == Guid.Empty || !Hash(value.PaperQualificationSha256) ||
             value.ReconciledAtUtc.Kind != DateTimeKind.Utc || value.BrokerSnapshotAtUtc.Kind != DateTimeKind.Utc ||
             value.BrokerSnapshotAtUtc > value.ReconciledAtUtc || string.IsNullOrWhiteSpace(value.PolicyVersion) ||
@@ -73,7 +91,14 @@ public static class LiveReconciliationEngine
             value.DiscrepancyCodes.Distinct(StringComparer.Ordinal).Count() != value.DiscrepancyCodes.Count ||
             !Enum.IsDefined(value.Status) ||
             (value.Status == LiveReconciliationStatus.Reconciled) != (value.DiscrepancyCodes.Count == 0) ||
-            value.EligibleForControlledAutomation != (value.Status == LiveReconciliationStatus.Reconciled))
+            value.EligibleForControlledAutomation != expectedEligibility ||
+            (value.SchemaVersion == 1 && (value.SourceMode is not null || value.BrokerProvider is not null ||
+                value.BrokerAccountId is not null || value.BrokerSnapshotSha256 is not null ||
+                value.InternalLedgerSha256 is not null || value.InternalStateRevision is not null)) ||
+            (value.SchemaVersion == 2 && (value.SourceMode is null || !Enum.IsDefined(value.SourceMode.Value) ||
+                string.IsNullOrWhiteSpace(value.BrokerProvider) || string.IsNullOrWhiteSpace(value.BrokerAccountId) ||
+                !Hash(value.BrokerSnapshotSha256) || !Hash(value.InternalLedgerSha256) ||
+                string.IsNullOrWhiteSpace(value.InternalStateRevision))))
             throw new ArgumentException("Live reconciliation artifact is invalid.", nameof(value));
         var unsigned = value with { ReconciliationSha256 = string.Empty };
         return unsigned with { ReconciliationSha256 = Digest(unsigned) };
@@ -142,7 +167,8 @@ public static class LiveReconciliationEngine
             snapshot.ExpectedPositions.Concat(snapshot.BrokerPositions).Any(x => x.InstrumentToken == 0 ||
                 string.IsNullOrWhiteSpace(x.Exchange) || string.IsNullOrWhiteSpace(x.TradingSymbol) ||
                 string.IsNullOrWhiteSpace(x.Product)) || string.IsNullOrWhiteSpace(policy.PolicyVersion) ||
-            policy.MaximumSnapshotAgeSeconds is < 1 or > 300)
+            policy.MaximumSnapshotAgeSeconds is < 1 or > 300 ||
+            policy.MaximumInternalStateAgeSeconds is < 1 or > 300 || policy.CashTolerance < 0)
             throw new ArgumentException("Live reconciliation input or policy is invalid.");
     }
 
@@ -150,6 +176,7 @@ public static class LiveReconciliationEngine
     private static string Digest<T>(T value) => Convert.ToHexString(SHA256.HashData(
         Encoding.UTF8.GetBytes(JsonSerializer.Serialize(value, Canonical)))).ToLowerInvariant();
     private static JsonSerializerOptions Options(bool indented)
-    { var value = new JsonSerializerOptions(JsonSerializerDefaults.Web) { WriteIndented = indented };
+    { var value = new JsonSerializerOptions(JsonSerializerDefaults.Web) { WriteIndented = indented,
+          DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
       value.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.CamelCase, false)); return value; }
 }

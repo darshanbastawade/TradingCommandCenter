@@ -157,18 +157,15 @@ public sealed class DatasetQualityCertifierTests
         var reorderedCalendar = new ExchangeSessionCalendar("same-id", India, new(9, 15),
             new(15, 30), new HashSet<DateOnly> { new(2025, 2, 26), new(2025, 3, 14) },
             new Dictionary<DateOnly, ExchangeSession>(sessions));
-        var changedHours = firstCalendar with
-        {
-            SpecialSessions = new Dictionary<DateOnly, ExchangeSession>
+        var changedHours = new ExchangeSessionCalendar("same-id", India, new(9, 15), new(15, 30),
+            holidays, new Dictionary<DateOnly, ExchangeSession>
             {
                 [special] = new(special, new(13, 30), new(14, 45))
-            }
-        };
-        var changedHoliday = firstCalendar with
-        {
-            Holidays = new HashSet<DateOnly> { new(2025, 2, 26) }
-        };
-        var changedNormalHours = firstCalendar with { DefaultSessionOpen = new(9, 10) };
+            });
+        var changedHoliday = new ExchangeSessionCalendar("same-id", India, new(9, 15), new(15, 30),
+            new HashSet<DateOnly> { new(2025, 2, 26) }, sessions);
+        var changedNormalHours = new ExchangeSessionCalendar("same-id", India, new(9, 10), new(15, 30),
+            holidays, sessions);
 
         DatasetQualityCertificate Certify(ExchangeSessionCalendar calendar) =>
             DatasetQualityCertifier.Certify([], InstrumentId, Timeframe.Minute5,

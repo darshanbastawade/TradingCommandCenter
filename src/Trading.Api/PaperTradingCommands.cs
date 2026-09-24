@@ -29,16 +29,22 @@ public static class PaperTradingCommands
             var options = Parse(args);
             var input = await ReadInputAsync(options.Input, cancellationToken);
             if (!input.OperatorApproved) throw new ArgumentException("Paper trading requires operatorApproved=true in the input artifact.");
+            var createdAt = DateTime.UtcNow;
+            var qualification = options.QualifiedStrategy is null ? null :
+                await ReadQualifiedStrategyAsync(options.QualifiedStrategy, createdAt, cancellationToken);
             await using var scope = services.CreateAsyncScope();
             var certificateEntity = await scope.ServiceProvider.GetRequiredService<IStrategyCertificateStore>()
                 .FindAsync(options.CertificateId, cancellationToken) ?? throw new ArgumentException("The strategy certificate was not found.");
-            var certificate = VerifyCertificate(certificateEntity, DateTime.UtcNow);
+            var certificate = VerifyCertificate(certificateEntity, createdAt);
+            if (qualification is not null && (certificate.StrategyId != qualification.StrategyId ||
+                certificate.ResearchRunId != qualification.ResearchRunId))
+                throw new InvalidDataException("The M19 paper certificate does not share the M34 strategy and research lineage.");
             var captureEntity = await scope.ServiceProvider.GetRequiredService<IMarketFeedCaptureStore>()
                 .FindAsync(options.FeedCaptureId, cancellationToken) ?? throw new ArgumentException("The market-feed capture was not found.");
             var capture = VerifyCapture(captureEntity);
             ValidateAgainstCertificate(input, certificate);
 
-            var createdAt = DateTime.UtcNow; var sessionId = Guid.NewGuid();
+            var sessionId = Guid.NewGuid();
             var settings = configuration.GetSection("RiskPolicy").Get<DeterministicRiskPolicySettings>() ?? new();
             var effective = settings with
             {
@@ -48,26 +54,45 @@ public static class PaperTradingCommands
             {
                 MaximumLots = Minimum(item.MaximumLots, certificate.Constraints.MaximumLots)
             }).ToArray();
-            var configurationSha256 = Sha256(JsonSerializer.Serialize(new { input, riskPolicy = effective }, Json));
-            var result = PaperTradingEngine.Run(new(sessionId, createdAt, certificate.StrategyId,
+            var calendar = await ExchangeCalendarLoader.LoadAsync(configuration, cancellationToken);
+            var configurationSha256 = Sha256(JsonSerializer.Serialize(new { input, riskPolicy = effective,
+                calendarId = calendar.Id, calendarSha256 = calendar.Sha256 }, Json));
+            var paperRequest = new PaperTradingRequest(sessionId, createdAt, certificate.StrategyId,
                 input.InitialCash, input.SlippageBasisPoints, input.FeeBasisPointsPerSide,
                 input.FixedFeePerFill, input.MaximumTickAgeSeconds, input.KillSwitchEngaged,
-                orders, capture.Ticks), effective, TimeZoneInfo.FindSystemTimeZoneById("India Standard Time"));
+                orders, capture.Ticks) { QuoteQualityPolicy = input.QuoteQualityPolicy };
+            var result = PaperTradingEngine.Run(paperRequest, effective, calendar);
             if (result.EndingCash < 0) throw new InvalidOperationException("Paper trading produced a negative cash balance.");
 
-            var unsigned = new PaperTradingSessionArtifact(1, sessionId, createdAt, certificate.CertificateId,
-                certificate.CertificateSha256, capture.CaptureId, capture.ArtifactSha256, effective.PolicyId,
-                certificate.Constraints.CostProfile, configurationSha256, true, result, string.Empty);
-            var hash = Sha256(JsonSerializer.Serialize(unsigned, Json));
-            var artifact = unsigned with { ArtifactSha256 = hash };
-            var artifactJson = JsonSerializer.Serialize(artifact, Json);
+            string hash; string artifactJson;
+            if (qualification is null)
+            {
+                var unsigned = new PaperTradingSessionArtifact(1, sessionId, createdAt, certificate.CertificateId,
+                    certificate.CertificateSha256, capture.CaptureId, capture.ArtifactSha256, effective.PolicyId,
+                    certificate.Constraints.CostProfile, configurationSha256, true, result, string.Empty);
+                hash = Sha256(JsonSerializer.Serialize(unsigned, Json));
+                artifactJson = JsonSerializer.Serialize(unsigned with { ArtifactSha256 = hash }, Json);
+            }
+            else
+            {
+                var unsigned = new QualifiedPaperTradingSessionArtifact(2, sessionId, createdAt,
+                    certificate.CertificateId, certificate.CertificateSha256, capture.CaptureId,
+                    capture.ArtifactSha256, effective.PolicyId, certificate.Constraints.CostProfile,
+                    configurationSha256, true, result, qualification.QualificationId,
+                    qualification.QualificationSha256, qualification.CertificateId,
+                    qualification.CertificateSha256, qualification.QualifiedAtUtc, string.Empty);
+                hash = Sha256(JsonSerializer.Serialize(unsigned, Json));
+                artifactJson = JsonSerializer.Serialize(unsigned with { ArtifactSha256 = hash }, Json);
+            }
             await WriteNewAtomicallyAsync(options.Output, artifactJson, cancellationToken);
             createdFile = options.Output;
             await scope.ServiceProvider.GetRequiredService<IPaperTradingSessionStore>().AddAsync(
                 new PaperTradingSession(sessionId, certificate.CertificateId, capture.CaptureId, createdAt,
                     certificate.StrategyId, result.InitialCash, result.EndingCash, result.RealizedNetPnl,
                     result.SubmittedOrders, result.FilledTrades, result.RejectedOrders,
-                    configurationSha256, hash, artifactJson),
+                    configurationSha256, hash, artifactJson, qualification?.QualificationId,
+                    qualification?.QualificationSha256, qualification?.CertificateId,
+                    qualification?.CertificateSha256, qualification?.QualifiedAtUtc),
                 cancellationToken);
             createdFile = null;
             await output.WriteLineAsync(JsonSerializer.Serialize(new { status = "paper-session-completed",
@@ -147,9 +172,24 @@ public static class PaperTradingCommands
             throw new ArgumentException("Paper input JSON is empty.");
     }
 
+    private static async Task<QualifiedStrategyArtifact> ReadQualifiedStrategyAsync(string path, DateTime nowUtc,
+        CancellationToken token)
+    {
+        await using var stream = File.OpenRead(path);
+        if (stream.Length > MaximumInputBytes) throw new ArgumentException("Qualified strategy exceeds 1 MiB.");
+        var value = await JsonSerializer.DeserializeAsync<QualifiedStrategyArtifact>(stream, Json, token) ??
+            throw new InvalidDataException("The M34 qualified strategy is empty or invalid.");
+        if (!QualifiedStrategyPipeline.Verify(value) || !value.EligibleForPaperQualification ||
+            value.SemiLiveAuthorized || value.DirectLiveAuthorized || nowUtc < value.QualifiedAtUtc ||
+            nowUtc >= value.ExpiresAtUtc)
+            throw new InvalidDataException("The M34 qualified strategy is invalid, expired, or ineligible.");
+        return value;
+    }
+
     private static CommandOptions Parse(string[] args)
     {
         string? certificate = null; string? capture = null; string? input = null; string? output = null;
+        string? qualifiedStrategy = null;
         for (var index = 1; index < args.Length; index += 2)
         {
             if (index + 1 >= args.Length) throw new ArgumentException($"Missing value for {args[index]}.");
@@ -159,6 +199,8 @@ public static class PaperTradingCommands
                 case "--feed-capture-id" when capture is null: capture = args[index + 1]; break;
                 case "--file" when input is null: input = args[index + 1]; break;
                 case "--output" when output is null: output = args[index + 1]; break;
+                case "--qualified-strategy" when qualifiedStrategy is null:
+                    qualifiedStrategy = args[index + 1]; break;
                 default: throw new ArgumentException($"Unknown or duplicate option: {args[index]}");
             }
         }
@@ -173,7 +215,8 @@ public static class PaperTradingCommands
             throw new ArgumentException("--output must use the .json extension.");
         if (!Directory.Exists(Path.GetDirectoryName(destination))) throw new ArgumentException("The --output directory does not exist.");
         if (File.Exists(destination)) throw new IOException("The output file already exists.");
-        return new(certificateId, captureId, inputPath, destination);
+        return new(certificateId, captureId, inputPath, destination,
+            qualifiedStrategy is null ? null : ExistingJson(qualifiedStrategy, "--qualified-strategy"));
     }
     private static string ExistingJson(string? value, string option)
     {
@@ -205,14 +248,25 @@ public static class PaperTradingCommands
         options.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.CamelCase));
         return options;
     }
-    private sealed record CommandOptions(Guid CertificateId, Guid FeedCaptureId, string Input, string Output);
+    private sealed record CommandOptions(Guid CertificateId, Guid FeedCaptureId, string Input, string Output,
+        string? QualifiedStrategy);
 }
 
 public sealed record PaperTradingInput(decimal InitialCash, decimal SlippageBasisPoints,
     decimal FeeBasisPointsPerSide, decimal FixedFeePerFill, int MaximumTickAgeSeconds,
-    bool KillSwitchEngaged, bool OperatorApproved, IReadOnlyList<PaperTradeIntent> Orders);
+    bool KillSwitchEngaged, bool OperatorApproved, IReadOnlyList<PaperTradeIntent> Orders)
+{
+    public PaperQuoteQualityPolicy QuoteQualityPolicy { get; init; } = PaperQuoteQualityPolicy.RequireBestBidAsk;
+}
 
 public sealed record PaperTradingSessionArtifact(int SchemaVersion, Guid SessionId, DateTime CreatedAtUtc,
     Guid StrategyCertificateId, string StrategyCertificateSha256, Guid MarketFeedCaptureId,
     string MarketFeedCaptureSha256, string RiskPolicyId, string CertifiedCostProfile, string ConfigurationSha256,
     bool OperatorApproved, PaperTradingResult Result, string ArtifactSha256);
+
+public sealed record QualifiedPaperTradingSessionArtifact(int SchemaVersion, Guid SessionId, DateTime CreatedAtUtc,
+    Guid StrategyCertificateId, string StrategyCertificateSha256, Guid MarketFeedCaptureId,
+    string MarketFeedCaptureSha256, string RiskPolicyId, string CertifiedCostProfile, string ConfigurationSha256,
+    bool OperatorApproved, PaperTradingResult Result, Guid StrategyQualificationId,
+    string StrategyQualificationSha256, Guid QualificationCertificateId,
+    string QualificationCertificateSha256, DateTime QualificationStartedAtUtc, string ArtifactSha256);

@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
+using Trading.Domain.MarketData;
 
 namespace Trading.Risk.Policy;
 
@@ -74,6 +75,8 @@ public sealed record RiskPeriodState(decimal RealizedPnl, decimal RemainingLossC
 public sealed record RiskDecision(
     int SchemaVersion,
     string PolicyId,
+    string CalendarId,
+    string CalendarSha256,
     Guid RequestId,
     bool Approved,
     decimal MaximumApprovedRisk,
@@ -93,7 +96,7 @@ public sealed record RiskSizedDecision(RiskDecision PolicyDecision, PositionSize
 public static class DeterministicRiskPolicy
 {
     public static RiskSizedDecision EvaluateAndSize(DeterministicRiskPolicySettings settings,
-        RiskPortfolioState state, TradeSizingRiskRequest request, TimeZoneInfo exchangeTimeZone)
+        RiskPortfolioState state, TradeSizingRiskRequest request, ExchangeSessionCalendar calendar)
     {
         ArgumentNullException.ThrowIfNull(request);
         if (request.EntryPrice <= 0 || request.StopPrice <= 0 || request.EntryPrice == request.StopPrice ||
@@ -101,7 +104,7 @@ public static class DeterministicRiskPolicy
             throw new ArgumentException("Trade sizing inputs are invalid.", nameof(request));
         var probeRequest = new TradeRiskRequest(request.RequestId, request.StrategyId, request.InstrumentId,
             request.ProposedEntryUtc, request.PlannedExitUtc, .0001m, .0001m, request.CapitalPool, request.IsScaleIn);
-        var probe = Evaluate(settings, state, probeRequest, exchangeTimeZone);
+        var probe = Evaluate(settings, state, probeRequest, calendar);
         var riskPerUnit = decimal.Abs(request.EntryPrice - request.StopPrice);
         PositionSizeResult size;
         if (probe.MaximumApprovedRisk <= 0 || probe.MaximumApprovedCapital <= 0)
@@ -112,7 +115,7 @@ public static class DeterministicRiskPolicy
         var decision = size.CanTrade
             ? Evaluate(settings, state, new(request.RequestId, request.StrategyId, request.InstrumentId,
                 request.ProposedEntryUtc, request.PlannedExitUtc, size.TotalRisk, size.CapitalRequired,
-                request.CapitalPool, request.IsScaleIn), exchangeTimeZone)
+                request.CapitalPool, request.IsScaleIn), calendar)
             : probe;
         var hashInput = string.Join('|', decision.DecisionSha256, I(request.EntryPrice), I(request.StopPrice),
             request.LotSize.ToString(CultureInfo.InvariantCulture), request.MaximumLots?.ToString(CultureInfo.InvariantCulture) ?? "null",
@@ -122,26 +125,27 @@ public static class DeterministicRiskPolicy
     }
 
     public static RiskDecision Evaluate(DeterministicRiskPolicySettings settings, RiskPortfolioState state,
-        TradeRiskRequest request, TimeZoneInfo exchangeTimeZone)
+        TradeRiskRequest request, ExchangeSessionCalendar calendar)
     {
         ArgumentNullException.ThrowIfNull(settings);
         ArgumentNullException.ThrowIfNull(state);
         ArgumentNullException.ThrowIfNull(request);
-        ArgumentNullException.ThrowIfNull(exchangeTimeZone);
+        ArgumentNullException.ThrowIfNull(calendar);
         Validate(settings, state, request);
 
-        var entrySession = Session(request.ProposedEntryUtc, exchangeTimeZone);
-        var exitSession = Session(request.PlannedExitUtc, exchangeTimeZone);
-        var localEntry = Clock(request.ProposedEntryUtc, exchangeTimeZone);
-        var localExit = Clock(request.PlannedExitUtc, exchangeTimeZone);
-        var todayTrades = state.ClosedTrades.Where(trade => Session(trade.EntryUtc, exchangeTimeZone) == entrySession)
+        var entryDate = calendar.LocalDate(request.ProposedEntryUtc);
+        var exitDate = calendar.LocalDate(request.PlannedExitUtc);
+        var localEntry = calendar.LocalTime(request.ProposedEntryUtc);
+        var localExit = calendar.LocalTime(request.PlannedExitUtc);
+        var hasEntrySession = calendar.TryGetSession(entryDate, out var exchangeSession);
+        var todayTrades = state.ClosedTrades.Where(trade => calendar.LocalDate(trade.EntryUtc) == entryDate)
             .OrderBy(trade => trade.ExitUtc).ToArray();
         var consecutiveLosses = todayTrades.Reverse().TakeWhile(trade => trade.NetPnl < 0).Count();
-        var weekStart = entrySession.AddDays(-(((int)entrySession.DayOfWeek + 6) % 7));
-        var monthStart = new DateOnly(entrySession.Year, entrySession.Month, 1);
-        var dayPnl = Realized(state.ClosedTrades, entrySession, entrySession.AddDays(1), exchangeTimeZone);
-        var weekPnl = Realized(state.ClosedTrades, weekStart, weekStart.AddDays(7), exchangeTimeZone);
-        var monthPnl = Realized(state.ClosedTrades, monthStart, monthStart.AddMonths(1), exchangeTimeZone);
+        var weekStart = entryDate.AddDays(-(((int)entryDate.DayOfWeek + 6) % 7));
+        var monthStart = new DateOnly(entryDate.Year, entryDate.Month, 1);
+        var dayPnl = Realized(state.ClosedTrades, entryDate, entryDate.AddDays(1), calendar);
+        var weekPnl = Realized(state.ClosedTrades, weekStart, weekStart.AddDays(7), calendar);
+        var monthPnl = Realized(state.ClosedTrades, monthStart, monthStart.AddMonths(1), calendar);
         var day = Period(dayPnl, settings.MaximumDailyLoss);
         var week = Period(weekPnl, settings.MaximumWeeklyLoss);
         var month = Period(monthPnl, settings.MaximumMonthlyLoss);
@@ -159,12 +163,15 @@ public static class DeterministicRiskPolicy
         Add(state.KillSwitchEngaged, RiskRejectionCode.KillSwitchEngaged);
         Add(settings.RequireQualifiedStrategy && !state.QualifiedStrategyIds.Contains(request.StrategyId),
             RiskRejectionCode.StrategyNotQualified);
-        Add(entrySession.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday ||
-            localEntry < settings.EntryWindowStart || localEntry >= settings.LastEntryTime,
+        Add(!hasEntrySession || localEntry < settings.EntryWindowStart ||
+            (hasEntrySession && localEntry < exchangeSession.Open) ||
+            localEntry >= settings.LastEntryTime ||
+            (hasEntrySession && localEntry >= exchangeSession.Close),
             RiskRejectionCode.OutsideTradingSession);
-        Add(exitSession != entrySession || request.PlannedExitUtc <= request.ProposedEntryUtc ||
-            localExit > settings.MandatoryExitTime, RiskRejectionCode.OvernightPositionForbidden);
-        Add(state.OpenPositions.Any(position => Session(position.EntryUtc, exchangeTimeZone) != entrySession),
+        Add(!hasEntrySession || exitDate != entryDate || request.PlannedExitUtc <= request.ProposedEntryUtc ||
+            localExit > settings.MandatoryExitTime ||
+            (hasEntrySession && localExit > exchangeSession.Close), RiskRejectionCode.OvernightPositionForbidden);
+        Add(state.OpenPositions.Any(position => calendar.LocalDate(position.EntryUtc) != entryDate),
             RiskRejectionCode.ExistingOvernightPosition);
         Add(state.OpenPositions.Count >= settings.MaximumOpenPositions,
             RiskRejectionCode.MaximumOpenPositionsReached);
@@ -183,8 +190,8 @@ public static class DeterministicRiskPolicy
             settings.MaximumAggregateOpenRisk, RiskRejectionCode.AggregateOpenRiskExceeded);
 
         var distinct = reasons.Distinct().Order().ToArray();
-        var hash = Hash(settings, state, request, exchangeTimeZone, maximumRisk, maximumCapital, distinct);
-        return new(1, settings.PolicyId, request.RequestId, distinct.Length == 0, maximumRisk,
+        var hash = Hash(settings, state, request, calendar, maximumRisk, maximumCapital, distinct);
+        return new(2, settings.PolicyId, calendar.Id, calendar.Sha256, request.RequestId, distinct.Length == 0, maximumRisk,
             maximumCapital, todayTrades.Length, consecutiveLosses, day, week, month,
             Array.AsReadOnly(distinct), hash);
 
@@ -195,16 +202,11 @@ public static class DeterministicRiskPolicy
         new(pnl, decimal.Max(0, limit + pnl));
 
     private static decimal Realized(IEnumerable<ClosedRiskTrade> trades, DateOnly from, DateOnly to,
-        TimeZoneInfo zone) => trades.Where(trade =>
+        ExchangeSessionCalendar calendar) => trades.Where(trade =>
         {
-            var session = Session(trade.ExitUtc, zone);
+            var session = calendar.LocalDate(trade.ExitUtc);
             return session >= from && session < to;
         }).Sum(trade => trade.NetPnl);
-
-    private static DateOnly Session(DateTime utc, TimeZoneInfo zone) =>
-        DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(utc, zone));
-    private static TimeOnly Clock(DateTime utc, TimeZoneInfo zone) =>
-        TimeOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(utc, zone));
 
     private static void Validate(DeterministicRiskPolicySettings settings, RiskPortfolioState state,
         TradeRiskRequest request)
@@ -243,11 +245,12 @@ public static class DeterministicRiskPolicy
     }
 
     private static string Hash(DeterministicRiskPolicySettings settings, RiskPortfolioState state,
-        TradeRiskRequest request, TimeZoneInfo exchangeTimeZone, decimal maximumRisk, decimal maximumCapital,
+        TradeRiskRequest request, ExchangeSessionCalendar calendar, decimal maximumRisk, decimal maximumCapital,
         IReadOnlyList<RiskRejectionCode> reasons)
     {
         var capital = settings.Capital;
-        var text = new StringBuilder().Append(settings.PolicyId).Append('|').Append(exchangeTimeZone.Id).Append('|')
+        var text = new StringBuilder().Append(settings.PolicyId).Append('|').Append(calendar.Id).Append('|')
+            .Append(calendar.Sha256).Append('|').Append(calendar.TimeZone.Id).Append('|')
             .Append(I(capital.TotalCapital)).Append('|').Append(I(capital.ProtectedReserve)).Append('|')
             .Append(I(capital.ActiveTradingCapital)).Append('|').Append(I(capital.StrategyTestingCapital)).Append('|')
             .Append(I(capital.CashBuffer)).Append('|').Append(I(settings.MaximumRiskPerTrade)).Append('|')

@@ -37,6 +37,16 @@ public sealed class StrategyCertificateV2Tests
     }
 
     [Fact]
+    public void Synthetic_cross_engine_pass_cannot_become_evidence_qualified()
+    {
+        var certificate = StrategyCertificateV2Issuer.Issue(Source() with { GenuineLeanValidation = false });
+
+        Assert.Equal(StrategyCertificateV2Status.EvidenceRejected, certificate.Status);
+        Assert.Contains("genuine-lean-validation-missing", certificate.EvidenceFailures);
+        Assert.False(certificate.EligibleForQualificationPipeline);
+    }
+
+    [Fact]
     public void Qualified_pipeline_requires_matching_analysis_and_operator_approval_but_ignores_ai_opinion()
     {
         var certificate = StrategyCertificateV2Issuer.Issue(Source());
@@ -60,7 +70,7 @@ public sealed class StrategyCertificateV2Tests
         new string('a', 64), new string('b', 64), new string('c', 64), new string('d', 64),
         new string('e', 64), new string('f', 64), new string('1', 64), new string('2', 64),
         new StrategyScore(1, "strategy-v1", 90, true, [], 18, 14, 12, 18, 14, 9, 5),
-        true, 1, 1, 1, 0, 0, 0, 10, .10m, 0, 100, 50, 40, 30, 20);
+        true, true, 1, 1, 1, 0, 0, 0, 10, .10m, 0, 100, 50, 40, 30, 20);
 
     private static AstraResearchAnalysisV2Artifact Analysis(StrategyCertificateV2 certificate,
         ResearchAnalystV2Recommendation recommendation)

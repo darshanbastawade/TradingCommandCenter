@@ -1,4 +1,116 @@
-# Verification — September 22, 2026
+# Verification — September 23, 2026
+
+## M38.10 CI and verification closure
+
+- Added `.github/workflows/ci.yml` with one branch-protection-ready `CI / verify` status on every push and pull request. It installs the exact `10.0.401` SDK read from `global.json`, performs locked single-node restore, builds the full Release solution without restoring, explicitly runs all five M38.8 parity fixtures, runs the complete .NET suite without rebuilding, and retains TRX results.
+- The same job installs Python 3.13 and the exact `==` dependency set from `workers/vectorbt/requirements.lock.txt`, syntax-compiles the worker/port, and runs the real vectorbt worker through `workers/vectorbt/smoke_test.py`. All Azure OpenAI and Zerodha values are absent and the live kill switch/order gates are explicitly fail-closed.
+- Added the optional manual `.github/workflows/lean-validation.yml`. It accepts only an immutable image digest and a pre-staged M29 package on a dedicated `lean-validation` self-hosted runner, invokes the official LEAN CLI, and retains raw official output/evidence. It never runs on push or pull request and all live broker/feed gates are forced closed.
+- Local locked restore passed. The full Release solution built with 0 warnings and 0 errors. All 329 tests passed: BacktestTests 111, IntegrationTests 111, StrategyValidationTests 48, UnitTests 59. No tests were skipped. The explicit parity gate separately passed all 5 strategy cases.
+- Python syntax compilation passed for `worker.py`, `parity.py`, `smoke_test.py`, and the LEAN algorithm. The real pinned vectorbt 1.1.0 worker smoke passed and returned one candidate with one trade.
+- No SQL Server, Zerodha, Azure OpenAI, paid AI, broker, or other external network call occurred. Docker and the LEAN CLI remain unavailable locally, so the manual workflow and official LEAN container were not executed. GitHub-hosted CI will first execute after these files are pushed; this local verification does not claim a GitHub Actions run or official LEAN result.
+
+## M38 closure verification matrix
+
+This matrix makes the verification boundary explicit for every M38 milestone. Test totals are the complete suite at that milestone; details and limitations remain in the milestone sections below.
+
+| Milestone | Build and tests | Smoke / external validation actually executed | Integrations not executed | Broker, AI, or network calls |
+| --- | --- | --- | --- | --- |
+| M38.1 | Pass; 286 tests | Fake-broker direct preparation/submission | Zerodha, Azure OpenAI, LEAN, vectorbt, SQL Server | None; NuGet audit network attempts failed before the documented offline restore fallback |
+| M38.2 | Pass; 291 tests | SQLite replay/concurrency and fake-broker paths | SQL Server migration, Zerodha, Azure OpenAI, LEAN, vectorbt | None |
+| M38.3 | Pass; 294 tests | Durable-state tests with relational fixtures | SQL Server migration, production ledger writer, Zerodha, Azure OpenAI, LEAN, vectorbt | None |
+| M38.4 | Pass; 298 tests | DB-backed selection/lineage fixtures | SQL Server migration, Zerodha, Azure OpenAI, LEAN, vectorbt | None |
+| M38.5 | Pass; 306 tests | Fake broker and internal-ledger reconciliation | Production Zerodha, trusted production ledger writer, SQL Server, Azure OpenAI, LEAN, vectorbt | None |
+| M38.6 | Pass; 311 tests | Canonical exchange-calendar and CLI fixtures | Zerodha, Azure OpenAI, LEAN, vectorbt, SQL Server | None |
+| M38.7 | Pass; 319 tests | Executable bid/ask paper-fill fixtures | Zerodha, Azure OpenAI, LEAN, vectorbt, SQL Server | None |
+| M38.8 | Pass; 325 tests | Five C#/Python parity fixtures and Python compilation | Real vectorbt portfolio runtime, LEAN, Zerodha, Azure OpenAI, SQL Server | None |
+| M38.9 | Pass; 329 tests | Two-session native/independent-algorithm fixture and Python compilation | Official LEAN container/CLI, production M30 evidence, Zerodha, Azure OpenAI, SQL Server | None |
+| M38.10 | Pass; 329 tests | Five parity cases, Python compilation, real vectorbt 1.1.0 smoke | GitHub-hosted workflow, official LEAN container/CLI, Zerodha, Azure OpenAI, SQL Server | None |
+
+## M38.9 real LEAN validation closure
+
+- Added `external/lean/TradingCommandCenterLean`, a separately maintained LEAN Python algorithm for `vwap-ema-trend-breakout-v1`. It imports no native strategy assembly and independently implements indicator initialization, complete signal semantics, risk sizing, next-bar entry, stop-first OHLC execution, slippage and session/end exits.
+- Upgraded the M29 package to schema 2 and adapter version 2. The process boundary now requires an immutable image digest, verifies a source-hash strategy manifest, filters modern LEAN summary/auxiliary outputs, reconciles official `TotalPerformance.ClosedTrades`, and binds official-result, algorithm, strategy implementation, request and candle hashes into the portable run.
+- M30 keeps its original strict tolerance policy and carries the independent-validation provenance into its sealed comparison. The two-session 5-minute fixture produced both directions and passed strict native-versus-independent-algorithm comparison with 100% matched trades and exact entry/exit timestamps.
+- M32 now records `genuine-lean-validation-missing` and refuses `evidenceQualified` unless M30 contains verified official-runtime provenance. Legacy M25/M30 artifacts remain readable, but cannot manufacture new qualification authority.
+- Fixed a latent portable-run precision defect exposed by the parity fixture: native final P&L evidence is now derived from the sealed trade-ledger sum, avoiding a sub-decimal difference caused by accumulating trades onto starting capital.
+- Locked restore completed successfully with single-node MSBuild. Full solution build passed with 0 warnings and 0 errors. All 329 tests passed: BacktestTests 111, IntegrationTests 111, StrategyValidationTests 48, UnitTests 59. No tests were skipped. Python syntax compilation passed for the LEAN algorithm and parity harness.
+- No database migration, broker call, Azure OpenAI call, SQL Server call or cloud resource was used. Docker and the LEAN CLI were absent, so no official container run, production native/LEAN result hashes, comparison hash or official verdict is claimed. The source revision is `2d61de27d79d27a7f2f58015577e969cbaa01a142e3c39bac93d469e331f7086`; the remaining four strategies fail closed until independently implemented.
+
+## M38.8 native C# / vectorbt strategy parity closure
+
+- Replaced the five approximate pandas signal implementations with one Decimal Python port of the native C# indicators and strategy gates. EMA, ATR, ADX, +DI, -DI, rolling volume, session VWAP, DI direction, breakout/pullback/crossing rules, previous-volume use, session boundaries, and inclusive-start/exclusive-end entry windows now follow native semantics.
+- Added a normalized source SHA-256 parity manifest for all five strategies. Both the fixture harness and M26 worker reject an absent, failed or stale manifest. Schema-v2 worker evidence records the exact strategy, port version and source hash; M27 fails closed before persistence unless matching parity evidence passes. Legacy schema-v1 evidence remains readable.
+- Added cross-language fixtures that export C# candles, parameters, indicators and signal expectations to the standard-library Python harness. All five strategies produced long and short cases with exact signal timestamp/direction agreement; indicator values agreed within `0.00000000000000000001`. Fixtures cover warmup, gaps, session changes and a single-gate entry-end boundary near miss.
+- Added contract tests for matching/failed/mismatched parity and an integration assertion proving legacy parity-free worker evidence cannot persist an M27 sweep. Stabilized the M38 live-command fixtures with an explicit synthetic all-day calendar so they remain deterministic after India market close.
+- Locked restore completed successfully. Full solution build passed with 0 warnings and 0 errors. All 325 tests passed: BacktestTests 107, IntegrationTests 111, StrategyValidationTests 48, UnitTests 59. No tests were skipped. Python syntax compilation also passed.
+- No database schema change was required. Verification made no broker, Azure OpenAI, LEAN, SQL Server or network call. The configured vectorbt virtual environment was not present on this machine, so the real vectorbt 1.1.0 portfolio runtime was not smoke-tested; the exact signal/indicator port and its fail-closed manifest were executed through system Python.
+
+## M38.7 executable-price semantics for M22
+
+- Changed long-option paper execution to use best ask as the entry reference and best bid as the single stop/target and exit reference. LTP no longer triggers a level when an executable bid exists; adverse slippage is applied after selecting the executable reference.
+- Added explicit `RequireBestBidAsk` and `AllowLastPriceFallback` quote-quality policies. The safe default rejects missing entry ask or evaluated exit bid. New schema-v2 results record the policy and each completed trade records its actual entry/exit source; explicit LTP fallback is therefore immutable evidence rather than a silent quality downgrade.
+- Preserved legacy M22 hashes by making the new result/trade evidence nullable and omitting it when absent from older JSON. Existing M35 and live-chain fixture verification still passes.
+- Tests prove LTP above target with bid below does not trigger, bid at target does, LTP below stop with bid above does not trigger, bid at stop does, entry uses ask, exit uses bid, slippage remains adverse, spread changes realized P&L, strict quote quality fails closed, and explicit fallback is artifacted.
+- Locked restore completed successfully. Full solution build passed with 0 warnings and 0 errors. All 319 tests passed: BacktestTests 107, IntegrationTests 111, StrategyValidationTests 43, UnitTests 58. No tests were skipped.
+- M38.7 adds no database table or migration and made no broker, Azure OpenAI, LEAN, vectorbt, SQL Server, or other external service call.
+
+## M38.6 authoritative exchange calendar for M18
+
+- Extracted M16.1 session truth into an immutable Domain `ExchangeSessionCalendar` shared by research and execution. Its canonical SHA-256 format remains based on timezone, normal hours, holidays and date-specific sessions, while the calendar ID is separately bound as evidence.
+- M18 now requires an explicit calendar, uses calendar session lookup instead of weekday-only closure, intersects the exchange session with the configured entry window, and caps planned exits at both the policy mandatory-exit time and actual session close. Paper and live preparation load the same configured local calendar without network access.
+- Schema-v2 `RiskDecision` records `CalendarId` and `CalendarSha256`; changing calendar rules with the same calendar ID changes the decision fingerprint. Existing serialized execution artifacts remain readable.
+- Tests cover a normal weekday, weekday exchange holiday, Budget Saturday, ordinary Saturday, Muhurat shifted hours, early close, inclusive/exclusive entry boundaries, exit after a special close, and calendar-rule fingerprint changes. The CLI integration test verifies emitted calendar evidence.
+- Locked restore completed successfully. Full solution build passed with 0 warnings and 0 errors. All 311 tests passed: BacktestTests 107, IntegrationTests 103, StrategyValidationTests 43, UnitTests 58. No tests were skipped.
+- M38.6 adds no database table or migration and made no broker, Azure OpenAI, LEAN, vectorbt, SQL Server, or other external service call.
+
+## M38.5 authoritative live reconciliation
+
+- Kept `LiveReconciliationEngine` pure while adding production orchestration that obtains a fresh account snapshot from Zerodha and expected orders, fills, positions, cash and realized P&L from a durable internal ledger. Missing account identity, stale evidence, unresolved state, unmappable order/fill state, or any broker query failure stops reconciliation.
+- Added schema-v2 M36 provenance for source mode, broker provider/account, broker snapshot SHA-256, internal-ledger SHA-256 and internal revision. `reconcile-live` is the broker-backed production path; `reconcile-live-file` remains available for diagnostics and can never produce DirectLive eligibility. M37 rejects diagnostic and legacy reconciliation evidence for DirectLive.
+- Added immutable `InternalTradingLedgerSnapshots`, SQL-backed readers, Zerodha reconciliation mapping and a successful-M36 writer for M38.3 reconciled execution state. Persisted M23 direct orders and receipts are cross-checked against the internal ledger before M36 can pass.
+- Tests with fake broker and ledger adapters prove exact match, cash mismatch, unexpected position, missing broker order, unexpected broker order, fill/status mismatch, stale broker data, and rejection of diagnostic M36 evidence by M37 DirectLive.
+- Migration `20260923060024_M38AuthoritativeReconciliation` and an idempotent SSMS script were generated but not applied to the user's `Market` database. The generated EF idempotent script was inspected and contains the new table and both unique indexes.
+- Locked restore completed successfully. Full solution build passed with 0 warnings and 0 errors. All 306 tests passed: BacktestTests 102, IntegrationTests 103, StrategyValidationTests 43, UnitTests 58. No tests were skipped.
+- Verification used fakes and made no Zerodha, Azure OpenAI, LEAN, vectorbt, SQL Server, or other external service call. The immutable ledger reader and schema are complete, but a trusted production order-event/fill ingestion writer is not yet implemented; production M36 therefore fails closed until such a writer supplies a fresh valid ledger snapshot.
+
+## M38.4 selection-resistant paper qualification
+
+- Replaced production M35 session manifests with an `IPaperQualificationSessionQuery` over the inclusive M34 `QualifiedAtUtc` → operator-declared cutoff window. The command has no session-selection input and evaluates every matching durable row.
+- Added schema-v2 M22 evidence and nullable durable lineage columns binding each new qualification-period session to the exact M34 qualification ID/hash, M32 certificate ID/hash, and observation start. M22 also requires its M19 execution certificate to share the M34 research run and strategy.
+- Added schema-v2 M35 provenance for observation start/cutoff, first/last accepted session, discovered/accepted counts, rejected session IDs/reasons, and every included session ID/hash. Duplicate, altered, unapproved, multi-date, or lineage-mismatched evidence blocks qualification. M36 and M37 require the durable schema-v2 path; legacy M22/M35 artifacts remain readable.
+- Tests prove losing durable sessions cannot be omitted, pre-M34 and other-qualification sessions do not count, duplicates are rejected, semantic artifact tampering is rejected, all valid sessions are included, and identical cutoff/state produces the same artifact SHA-256. The upgraded M22 command test verifies its stored M34 bridge.
+- Migration `20260923052717_M38PaperQualificationLineage` and an idempotent SSMS script were generated but not applied to the user's `Market` database. The idempotent EF script was inspected and keeps M38.3 and M38.4 as separate ordered migrations.
+- Locked restore completed successfully. Full solution build passed with 0 warnings and 0 errors. All 298 tests passed: BacktestTests 102, IntegrationTests 95, StrategyValidationTests 43, UnitTests 58. No tests were skipped.
+- No Zerodha, Azure OpenAI, LEAN, vectorbt, SQL Server, or other external service call occurred during M38.4 verification.
+
+## M38.3 durable controlled-automation state
+
+- Removed caller-supplied completed-action and realized-loss fields from `ControlledAutomationIntent`. M37 now evaluates a single captured UTC instant against `IControlledAutomationStateProvider` evidence and emits a schema-v2 artifact containing the durable state inputs and evidence SHA-256.
+- Added `ReconciledExecutionStates` with an explicit EF migration and an idempotent SSMS script. The SQL-backed provider uses India exchange-local dates and combines consumed M37 authorizations, submitted M23 direct orders, reconciled realized P&L, unresolved submissions, and active broker positions.
+- Daily action limits use the greater of consumed and submitted direct actions. Realized loss uses `max(0, -realized P&L)`, so profit cannot expand configured limits. Missing, stale, wrong-date, unresolved-submission, or open-position state fails closed.
+- Tests cover prior consumption, loss at threshold, profitable-day behavior, unavailable and stale state, unresolved submissions, active positions, and the 18:30 UTC India trading-date boundary. Migration/model consistency also verifies the new table.
+- The migration and SQL script were generated but were not applied to the user's `Market` database during this milestone. No production writer for authoritative reconciled state exists yet; without a fresh trusted row, M37 deliberately returns `execution-state-unavailable`.
+- Locked restore completed successfully. Full solution build passed with 0 warnings and 0 errors. All 294 tests passed: BacktestTests 102, IntegrationTests 91, StrategyValidationTests 43, UnitTests 58. No tests were skipped.
+- No Zerodha, Azure OpenAI, LEAN, vectorbt, SQL Server, or other external service call occurred during M38.3 verification.
+
+## M38.2 durable one-time authorization consumption
+
+- Added the insert-only `ControlledAutomationAuthorizations` ledger with unique decision ID, SHA-256, action ID and related live-order identities plus validity/action constraints and an explicit EF migration.
+- M23 now persists the prepared order, atomically reserves the single authorization action, and only then attempts broker submission. Replay, expiry and concurrency failure stop before submission; uncertain broker outcomes retain consumption permanently. Semi-live never consumes authorization.
+- SQLite relational tests cover replay, concurrent reservation with exactly one winner, expiry, invalid hash and constraints. Command tests cover successful consumption, no semi-live consumption and retained consumption after a simulated uncertain broker exception.
+- The SQL Server migration and idempotent SSMS script were generated but were not applied to the user's `Market` database during this milestone.
+- Locked restore completed successfully with the repository's normal audit policy. Full solution build passed with 0 warnings and 0 errors. All 291 tests passed: BacktestTests 102, IntegrationTests 88, StrategyValidationTests 43, UnitTests 58. No tests were skipped.
+- No Zerodha, Azure OpenAI, LEAN, vectorbt, SQL Server or other external service call occurred.
+
+## M38.1 mandatory M37 direct-live authorization
+
+- Direct M23 submission requires `--automation-authorization` and verifies the M37 schema, SHA-256, direct decision, one-action bound, unused marker, UTC validity, certified strategy, request/action ID and action reference before resolving `ILiveBrokerClient`.
+- New direct artifacts are schema v2 and bind the M37 decision/hash plus M34 qualification, M35 paper qualification and M36 reconciliation identities. Legacy schema-v1 M23 JSON remains readable. Semi-live still submits no broker order.
+- Command integration tests cover missing, blocked, observe-only, proposal-only, expired, strategy-mismatched, action-mismatched and hash-invalid authorization; all rejection paths assert zero fake-broker calls. A valid fixture reaches the existing M18/M23 gates, submits once to a fake broker and verifies the stored v2 chain.
+- M38.1 makes no database change and does not yet provide durable replay prevention; that is explicitly reserved for M38.2.
+- Locked restore with the repository's normal NuGet audit was attempted twice and failed with `NU1900` because this environment could not reach `https://api.nuget.org/v3/index.json`, including after a session network grant. A command-line-only `NuGetAudit=false` fallback restored the unchanged locked dependency graph; no repository audit setting was changed. Full solution build then passed with 0 warnings and 0 errors.
+- All 286 tests passed: BacktestTests 102, IntegrationTests 83, StrategyValidationTests 43, UnitTests 58. No tests were skipped.
+- No Zerodha, Azure OpenAI, LEAN, vectorbt, SQL Server or other network call was made during M38.1 verification.
 
 ## M16.1 exchange calendar and certified research slice
 

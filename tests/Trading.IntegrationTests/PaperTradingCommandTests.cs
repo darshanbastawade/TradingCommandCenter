@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Trading.Api;
+using Trading.Application.AI;
 using Trading.Application.Execution;
 using Trading.Application.MarketData;
 using Trading.Application.Research;
@@ -69,16 +70,19 @@ public sealed class PaperTradingCommandTests
         }
         var prefix = Path.Combine(Path.GetTempPath(), $"m22-{Guid.NewGuid():N}");
         var inputPath = prefix + "-input.json"; var outputPath = prefix + "-session.json";
+        var qualificationPath = prefix + "-qualification.json";
         try
         {
             var input = new PaperTradingInput(30_000, 0, 1, 10, 5, false, true,
                 [new(Guid.NewGuid(), certificate.InstrumentId, 12345, "NFO", "TESTCE", entry,
                     entry.AddSeconds(2), 90, 105, 25, 2)]);
             await File.WriteAllTextAsync(inputPath, JsonSerializer.Serialize(input, Json));
+            var qualification = Qualification(certificate.ResearchRunId, certificate.StrategyId, now);
+            await File.WriteAllTextAsync(qualificationPath, QualifiedStrategyPipeline.Serialize(qualification));
             var output = new StringWriter(); var error = new StringWriter();
             var result = await PaperTradingCommands.RunAsync(["paper-trade", "--certificate-id",
                 certificate.CertificateId.ToString(), "--feed-capture-id", capture.CaptureId.ToString(),
-                "--file", inputPath, "--output", outputPath], services,
+                "--file", inputPath, "--output", outputPath, "--qualified-strategy", qualificationPath], services,
                 new ConfigurationBuilder().Build(), output, error);
             Assert.Equal(0, result);
             Assert.Equal(string.Empty, error.ToString());
@@ -87,12 +91,23 @@ public sealed class PaperTradingCommandTests
             Assert.Equal(1, summary.FilledTrades);
             var stored = await scope.ServiceProvider.GetRequiredService<IPaperTradingSessionStore>().FindAsync(summary.Id);
             Assert.Equal(await File.ReadAllTextAsync(outputPath), stored!.ArtifactJson);
+            Assert.Equal(qualification.QualificationId, stored.StrategyQualificationId);
+            Assert.Equal(qualification.CertificateId, stored.QualificationCertificateId);
+            using var artifact = JsonDocument.Parse(stored.ArtifactJson);
+            Assert.Equal(2, artifact.RootElement.GetProperty("schemaVersion").GetInt32());
+            var execution = artifact.RootElement.GetProperty("result");
+            Assert.Equal(2, execution.GetProperty("schemaVersion").GetInt32());
+            Assert.Equal("requireBestBidAsk", execution.GetProperty("quoteQualityPolicy").GetString());
+            var trade = execution.GetProperty("trades")[0];
+            Assert.Equal("bestAsk", trade.GetProperty("entryPriceSource").GetString());
+            Assert.Equal("bestBid", trade.GetProperty("exitPriceSource").GetString());
             Assert.Contains("paper-session-completed", output.ToString());
         }
         finally
         {
             if (File.Exists(inputPath)) File.Delete(inputPath);
             if (File.Exists(outputPath)) File.Delete(outputPath);
+            if (File.Exists(qualificationPath)) File.Delete(qualificationPath);
         }
     }
 
@@ -109,6 +124,17 @@ public sealed class PaperTradingCommandTests
             time, last, 25, last, 1000, 500, 500, 95, 112, 90, 96, 1000, bid, bid + 1);
     private static string Sha256(string value) => Convert.ToHexString(
         SHA256.HashData(Encoding.UTF8.GetBytes(value))).ToLowerInvariant();
+    private static QualifiedStrategyArtifact Qualification(Guid researchRunId, string strategyId, DateTime now)
+    {
+        const string policy = "qualified-strategy-pipeline-v1"; var certificateHash = new string('7', 64);
+        var analysisHash = new string('8', 64); const string approval = "m38-paper-fixture";
+        var id = new Guid(SHA256.HashData(Encoding.UTF8.GetBytes(
+            $"{policy}|{certificateHash}|{analysisHash}|{approval}"))[..16]);
+        return QualifiedStrategyPipeline.Seal(new(1, id, now.AddMinutes(-1), now.AddDays(30), policy,
+            Guid.NewGuid(), certificateHash, Guid.NewGuid(), analysisHash, researchRunId, strategyId, 1,
+            ResearchAnalystV2Recommendation.QualificationReview, approval, true, false, true, false, false,
+            string.Empty));
+    }
     private static JsonSerializerOptions CreateJson()
     {
         var options = new JsonSerializerOptions(JsonSerializerDefaults.Web) { WriteIndented = true };

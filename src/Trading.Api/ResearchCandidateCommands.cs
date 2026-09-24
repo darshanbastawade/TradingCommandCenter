@@ -76,6 +76,10 @@ public static class ResearchCandidateCommands
         var workerResult = await worker.RunAsync(request, token);
         if (!ResearchWorkerEvidenceCodec.Verify(workerResult, request))
             throw new InvalidDataException("Research worker evidence is invalid.");
+        if (workerResult.SchemaVersion != 2 || workerResult.ParityEvidence is null ||
+            !workerResult.ParityEvidence.Passed || workerResult.ParityEvidence.StrategyId != request.StrategyId)
+            throw new InvalidDataException(
+                "Research worker strategy parity is absent or has not passed; candidates cannot be selected.");
         var specifications = plan.Candidates.ToDictionary(item => item.SpecificationSha256, StringComparer.Ordinal);
         var ordered = workerResult.Candidates.OrderByDescending(item => item.Metrics.Score)
             .ThenBy(item => item.CandidateKey, StringComparer.Ordinal).ToArray();

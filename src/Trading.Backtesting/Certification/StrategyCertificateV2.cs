@@ -37,6 +37,7 @@ public sealed record StrategyCertificateV2Source(
     string CrossEngineComparisonSha256,
     string RobustnessArtifactSha256,
     StrategyScore Qualification,
+    bool GenuineLeanValidation,
     bool CrossEnginePassed,
     decimal CrossEngineMatchedTradeRate,
     decimal CrossEngineEntryTimestampMatchRate,

@@ -4,7 +4,8 @@ using Trading.Application.Execution;
 
 namespace Trading.Execution.Zerodha;
 
-public sealed class ZerodhaTradingClient(HttpClient httpClient, ZerodhaFeedOptions options) : ILiveBrokerClient
+public sealed class ZerodhaTradingClient(HttpClient httpClient, ZerodhaFeedOptions options) : ILiveBrokerClient,
+    ILiveBrokerReconciliationClient
 {
     private static readonly Uri ApiRoot = new("https://api.kite.trade/");
 
@@ -23,6 +24,40 @@ public sealed class ZerodhaTradingClient(HttpClient httpClient, ZerodhaFeedOptio
             item.GetProperty("tradingsymbol").GetString() ?? "", item.GetProperty("product").GetString() ?? "",
             item.GetProperty("quantity").GetInt32())).ToArray();
         return new(DateTime.UtcNow, available, items, Data(orders).GetArrayLength());
+    }
+
+    public async Task<BrokerReconciliationState> GetReconciliationStateAsync(
+        CancellationToken cancellationToken = default)
+    {
+        EnsureCredentials();
+        if (string.IsNullOrWhiteSpace(options.UserId))
+            throw new InvalidOperationException("Configure Zerodha:UserId for authoritative reconciliation.");
+        using var profile = await SendAsync(HttpMethod.Get, "user/profile", null, cancellationToken);
+        using var margin = await SendAsync(HttpMethod.Get, "user/margins/equity", null, cancellationToken);
+        using var positions = await SendAsync(HttpMethod.Get, "portfolio/positions", null, cancellationToken);
+        using var orders = await SendAsync(HttpMethod.Get, "orders", null, cancellationToken);
+        var accountId = Data(profile).GetProperty("user_id").GetString();
+        if (string.IsNullOrWhiteSpace(accountId) || accountId != options.UserId)
+            throw new InvalidDataException("Zerodha account identity does not match the configured user ID.");
+        var availableData = Data(margin).GetProperty("available");
+        var available = availableData.TryGetProperty("live_balance", out var liveBalance) ?
+            liveBalance.GetDecimal() : availableData.GetProperty("cash").GetDecimal();
+        var brokerPositions = Data(positions).GetProperty("net").EnumerateArray().Select(item =>
+            new BrokerPosition(item.GetProperty("instrument_token").GetUInt32(),
+                item.GetProperty("exchange").GetString() ?? string.Empty,
+                item.GetProperty("tradingsymbol").GetString() ?? string.Empty,
+                item.GetProperty("product").GetString() ?? string.Empty,
+                item.GetProperty("quantity").GetInt32())).ToArray();
+        var brokerOrders = Data(orders).EnumerateArray().Select(item => new BrokerReconciliationOrder(
+            item.GetProperty("order_id").GetString() ?? string.Empty,
+            item.GetProperty("instrument_token").GetUInt32(),
+            item.GetProperty("exchange").GetString() ?? string.Empty,
+            item.GetProperty("tradingsymbol").GetString() ?? string.Empty,
+            item.GetProperty("status").GetString() ?? string.Empty,
+            item.GetProperty("quantity").GetInt32(), item.GetProperty("filled_quantity").GetInt32(),
+            item.GetProperty("filled_quantity").GetInt32() == 0 ? null :
+                item.GetProperty("average_price").GetDecimal())).ToArray();
+        return new("zerodha-kite", accountId, DateTime.UtcNow, available, brokerPositions, brokerOrders);
     }
 
     public async Task<BrokerQuote> GetQuoteAsync(uint instrumentToken, string exchange, string tradingSymbol,

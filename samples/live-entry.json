@@ -1,5 +1,6 @@
 {
   "requestId": "23232323-2323-2323-2323-232323232323",
+  "automationActionReference": "replace-with-the-matching-m37-action-reference",
   "instrumentId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
   "instrumentToken": 12345678,
   "exchange": "NFO",

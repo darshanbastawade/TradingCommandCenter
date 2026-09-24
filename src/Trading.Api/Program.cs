@@ -47,6 +47,8 @@ var liveTradingOptions = builder.Configuration.GetSection("LiveTrading").Get<Tra
 var controlledAutomationOptions = builder.Configuration.GetSection("ControlledAutomation").Get<ControlledAutomationSettings>() ?? new();
 builder.Services.AddSingleton(zerodhaOptions);
 builder.Services.AddHttpClient<ILiveBrokerClient, ZerodhaTradingClient>(client => client.Timeout = TimeSpan.FromSeconds(15));
+builder.Services.AddHttpClient<ILiveBrokerReconciliationClient, ZerodhaTradingClient>(client =>
+    client.Timeout = TimeSpan.FromSeconds(15));
 builder.Services.AddSingleton(new BacktestEngineDescriptor(NativeBacktestEngine.Id,
     NativeBacktestEngine.Version, NativeBacktestEngine.EngineRole));
 builder.Services.AddScoped<IBacktestEngine, NativeBacktestEngine>();
@@ -71,13 +73,13 @@ if (command)
     try
     {
         Environment.ExitCode = ControlledAutomationCommands.IsCommand(args)
-            ? await ControlledAutomationCommands.RunAsync(args, builder.Configuration, Console.Out,
+            ? await ControlledAutomationCommands.RunAsync(args, app.Services, builder.Configuration, Console.Out,
                 Console.Error, cancellation.Token)
             : LiveReconciliationCommands.IsCommand(args)
-            ? await LiveReconciliationCommands.RunAsync(args, builder.Configuration, Console.Out,
+            ? await LiveReconciliationCommands.RunAsync(args, app.Services, builder.Configuration, Console.Out,
                 Console.Error, cancellation.Token)
             : PaperQualificationCommands.IsCommand(args)
-            ? await PaperQualificationCommands.RunAsync(args, builder.Configuration, Console.Out,
+            ? await PaperQualificationCommands.RunAsync(args, app.Services, builder.Configuration, Console.Out,
                 Console.Error, cancellation.Token)
             : QualifiedStrategyCommands.IsCommand(args)
             ? await QualifiedStrategyCommands.RunAsync(args, builder.Configuration, Console.Out, Console.Error,
@@ -133,7 +135,7 @@ app.MapHealthChecks("/health", new HealthCheckOptions { Predicate = _ => false }
 app.MapHealthChecks("/health/ready", new HealthCheckOptions { Predicate = check => check.Tags.Contains("ready") });
 app.MapGet("/api/status", () => new
 {
-    milestone = "M37",
+    milestone = "M38.10",
     strategies = new[]
     {
         "vwap-ema-trend-breakout-v1",
@@ -144,15 +146,16 @@ app.MapGet("/api/status", () => new
     },
     research = "certified-persisted-five-strategy-pipeline",
     optionsBacktesting = "observed-quotes-nearest-expiry-one-strike-itm",
-    riskPolicy = "deterministic-pre-trade-hard-gates-v1",
+    riskPolicy = "deterministic-pre-trade-hard-gates-calendar-bound-v2",
+    controlledAutomationState = "durable-reconciled-india-trading-date-v1",
     strategyCertificates = "research-qualified-paper-trading-eligibility-v1",
     backtestAnalyst = "azure-openai-astra-structured-analysis-v1",
     marketFeeds = "paper-replay-and-read-only-zerodha-sandbox-live-v1",
-    paperTrading = "certificate-and-risk-gated-deterministic-option-buying-v1",
+    paperTrading = "certificate-risk-and-executable-quote-gated-option-buying-v2",
     liveTrading = "risk-gated-semi-and-direct-limit-entry-v1",
     backtestSpecification = "universal-engine-neutral-v1",
     backtestEngineAbstraction = "authoritative-native-csharp-v1",
-    vectorbtResearchWorker = "vectorbt-1.1.0-research-exploration",
+    vectorbtResearchWorker = "vectorbt-1.1.0-native-signals-v1-research-exploration",
     parameterCandidateStore = "immutable-sweep-and-candidate-evidence-v1",
     nativeCandidateVerification = "authoritative-native-replay-v1",
     leanExternalValidator = "independent-validation-adapter-v1",
@@ -161,9 +164,11 @@ app.MapGet("/api/status", () => new
     strategyCertificateV2 = "cross-engine-and-robustness-bound-v2",
     astraResearchAnalystV2 = "structured-complete-evidence-analysis-v2",
     qualifiedStrategyPipeline = "deterministic-evidence-plus-human-approval-v1",
-    paperQualification = "verified-m22-session-gates-v1",
-    liveReconciliation = "cash-position-and-order-reconciliation-v1",
+    paperQualification = "durable-all-session-m34-lineage-v2",
+    liveReconciliation = "authoritative-zerodha-and-durable-ledger-v2",
     controlledAutomation = "short-lived-single-action-eligibility-v1",
+    directLiveAuthorization = "mandatory-m37-exact-action-v1",
+    authorizationConsumption = "durable-insert-only-single-use-v1",
     controlledAutomationEnabled = controlledAutomationOptions.Enabled,
     controlledAutomationKillSwitchEngaged = controlledAutomationOptions.KillSwitchEngaged,
     liveTradingKillSwitchEngaged = liveTradingOptions.KillSwitchEngaged,

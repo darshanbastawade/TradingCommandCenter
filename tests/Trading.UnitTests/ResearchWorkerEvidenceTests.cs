@@ -23,4 +23,27 @@ public sealed class ResearchWorkerEvidenceTests
         Assert.False(ResearchWorkerEvidenceCodec.Verify(result with
             { Candidates = [result.Candidates[0] with { Metrics = result.Candidates[0].Metrics with { Score = 11 } }] }, request));
     }
+
+    [Fact]
+    public void Schema_two_requires_matching_passing_strategy_parity()
+    {
+        var from = new DateTime(2026, 1, 1, 3, 45, 0, DateTimeKind.Utc);
+        var request = ResearchWorkerEvidenceCodec.Seal(new(1, "request-2", string.Empty,
+            new string('a', 64), "strategy-v1", 5, "India Standard Time", 100_000, 1,
+            new TimeOnly(15, 25), 1,
+            [new(from, 100, 101, 99, 100, 10), new(from.AddMinutes(5), 100, 102, 99, 101, 20)],
+            [new(new string('b', 64), new Dictionary<string, decimal> { ["period"] = 20 })]));
+        ResearchWorkerResult Result(ResearchWorkerParityEvidence evidence) => new(2, "vectorbt", "1.1.0",
+            BacktestEngineRole.ResearchExploration, request.RequestId, request.RequestSha256,
+            [new(new string('b', 64), new(10, 12, 4, 7, 60, 1.2m))], string.Empty)
+            { ParityEvidence = evidence };
+
+        var sealedResult = ResearchWorkerEvidenceCodec.Seal(Result(
+            new(request.StrategyId, true, "native-signals-v1", new string('c', 64))), request);
+        Assert.True(ResearchWorkerEvidenceCodec.Verify(sealedResult, request));
+        Assert.Throws<ArgumentException>(() => ResearchWorkerEvidenceCodec.Seal(Result(
+            new("different-strategy", true, "native-signals-v1", new string('c', 64))), request));
+        Assert.Throws<ArgumentException>(() => ResearchWorkerEvidenceCodec.Seal(Result(
+            new(request.StrategyId, false, "native-signals-v1", new string('c', 64))), request));
+    }
 }

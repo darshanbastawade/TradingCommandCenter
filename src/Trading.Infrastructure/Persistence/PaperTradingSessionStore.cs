@@ -4,7 +4,8 @@ using Trading.Domain.Execution;
 
 namespace Trading.Infrastructure.Persistence;
 
-public sealed class PaperTradingSessionStore(TradingDbContext db) : IPaperTradingSessionStore
+public sealed class PaperTradingSessionStore(TradingDbContext db) : IPaperTradingSessionStore,
+    IPaperQualificationSessionQuery
 {
     public async Task AddAsync(PaperTradingSession session, CancellationToken cancellationToken = default)
     {
@@ -31,4 +32,17 @@ public sealed class PaperTradingSessionStore(TradingDbContext db) : IPaperTradin
         CancellationToken cancellationToken = default) => await db.PaperTradingSessions.AsNoTracking()
         .Where(item => item.StrategyCertificateId == certificateId).OrderBy(item => item.CreatedAtUtc)
         .ToListAsync(cancellationToken);
+
+    public async Task<IReadOnlyList<PaperTradingSession>> ListForQualificationAsync(Guid qualificationId,
+        DateTime observationStartUtc, DateTime observationCutoffUtc,
+        CancellationToken cancellationToken = default)
+    {
+        if (qualificationId == Guid.Empty || observationStartUtc.Kind != DateTimeKind.Utc ||
+            observationCutoffUtc.Kind != DateTimeKind.Utc || observationStartUtc > observationCutoffUtc)
+            throw new ArgumentException("Paper qualification query identity or UTC window is invalid.");
+        return await db.PaperTradingSessions.AsNoTracking().Where(item =>
+                item.StrategyQualificationId == qualificationId && item.CreatedAtUtc >= observationStartUtc &&
+                item.CreatedAtUtc <= observationCutoffUtc)
+            .OrderBy(item => item.CreatedAtUtc).ThenBy(item => item.Id).ToListAsync(cancellationToken);
+    }
 }

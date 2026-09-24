@@ -88,7 +88,12 @@ public sealed class PersistenceTests
         Assert.Contains("CREATE TABLE [BacktestAnalyses]", sql);
         Assert.Contains("CREATE TABLE [MarketFeedCaptures]", sql);
         Assert.Contains("CREATE TABLE [PaperTradingSessions]", sql);
+        Assert.Contains("StrategyQualificationId", sql);
+        Assert.Contains("CK_PaperTradingSessions_QualificationLineage", sql);
         Assert.Contains("CREATE TABLE [LiveOrders]", sql);
+        Assert.Contains("CREATE TABLE [ControlledAutomationAuthorizations]", sql);
+        Assert.Contains("CREATE TABLE [ReconciledExecutionStates]", sql);
+        Assert.Contains("CREATE TABLE [InternalTradingLedgerSnapshots]", sql);
         Assert.Contains("CREATE TABLE [ParameterSweeps]", sql);
         Assert.Contains("CREATE TABLE [BacktestCandidates]", sql);
         Assert.Contains("CREATE TABLE [NativeCandidateVerificationRuns]", sql);
@@ -122,6 +127,35 @@ public sealed class PersistenceTests
         await Assert.ThrowsAsync<DbUpdateException>(() => store.AddAsync(new PaperTradingSession(Guid.NewGuid(),
             certificate.Id, capture.Id, now, "strategy-v1", 30_000, 30_000, 0, 1, 0, 1,
             new string('e', 64), new string('a', 64), "{}")));
+        db.ChangeTracker.Clear();
+
+        var qualificationId = Guid.NewGuid(); var otherQualificationId = Guid.NewGuid();
+        var qualificationStarted = now.AddMinutes(1); var cutoff = now.AddMinutes(10);
+        var qualifiedSessions = new[]
+        {
+            new PaperTradingSession(Guid.NewGuid(), certificate.Id, capture.Id, now.AddMinutes(2),
+                "strategy-v1", 30_000, 30_100, 100, 1, 1, 0, new string('1', 64),
+                new string('2', 64), "{}", qualificationId, new string('3', 64), Guid.NewGuid(),
+                new string('4', 64), qualificationStarted),
+            new PaperTradingSession(Guid.NewGuid(), certificate.Id, capture.Id, now.AddMinutes(3),
+                "strategy-v1", 30_000, 29_500, -500, 1, 1, 0, new string('5', 64),
+                new string('6', 64), "{}", qualificationId, new string('3', 64), Guid.NewGuid(),
+                new string('7', 64), qualificationStarted),
+            new PaperTradingSession(Guid.NewGuid(), certificate.Id, capture.Id, now.AddMinutes(4),
+                "strategy-v1", 30_000, 31_000, 1_000, 1, 1, 0, new string('8', 64),
+                new string('9', 64), "{}", otherQualificationId, new string('a', 64), Guid.NewGuid(),
+                new string('b', 64), qualificationStarted)
+        };
+        foreach (var qualifiedSession in qualifiedSessions) await store.AddAsync(qualifiedSession);
+        db.ChangeTracker.Clear();
+        var discovered = await store.ListForQualificationAsync(qualificationId, qualificationStarted, cutoff);
+        Assert.Equal(2, discovered.Count);
+        Assert.Contains(discovered, item => item.RealizedNetPnl < 0);
+        Assert.DoesNotContain(discovered, item => item.StrategyQualificationId == otherQualificationId);
+        Assert.Throws<ArgumentException>(() => new PaperTradingSession(Guid.NewGuid(), certificate.Id, capture.Id,
+            qualificationStarted.AddTicks(-1), "strategy-v1", 30_000, 30_100, 100, 1, 1, 0,
+            new string('c', 64), new string('d', 64), "{}", qualificationId, new string('e', 64),
+            Guid.NewGuid(), new string('f', 64), qualificationStarted));
     }
 
     [Fact]

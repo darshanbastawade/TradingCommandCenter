@@ -1,3 +1,4 @@
+using Trading.Domain.MarketData;
 using Trading.Risk.Policy;
 
 namespace Trading.BacktestTests;
@@ -115,10 +116,75 @@ public sealed class DeterministicRiskPolicyTests
     }
 
     [Fact]
+    public void Shared_calendar_accepts_normal_weekday_and_budget_Saturday_but_rejects_holiday_and_ordinary_Saturday()
+    {
+        var calendar = CanonicalCalendar();
+        Assert.True(Evaluate(calendar, RequestAt(2025, 2, 3, 9, 15, 15, 25)).Approved);
+        Assert.True(Evaluate(calendar, RequestAt(2025, 2, 1, 9, 15, 15, 25)).Approved);
+
+        var holiday = Evaluate(calendar, RequestAt(2025, 2, 26, 10, 0, 15, 20));
+        var saturday = Evaluate(calendar, RequestAt(2025, 2, 8, 10, 0, 15, 20));
+        Assert.Contains(RiskRejectionCode.OutsideTradingSession, holiday.RejectionCodes);
+        Assert.Contains(RiskRejectionCode.OutsideTradingSession, saturday.RejectionCodes);
+    }
+
+    [Fact]
+    public void Muhurat_session_intersects_policy_window_and_honors_exact_boundaries()
+    {
+        var calendar = CanonicalCalendar();
+        var beforeSpecialOpen = Evaluate(calendar, RequestAt(2025, 10, 21, 9, 15, 14, 30));
+        var atSpecialOpen = Evaluate(calendar, RequestAt(2025, 10, 21, 13, 45, 14, 45));
+        var atSpecialClose = Evaluate(calendar, RequestAt(2025, 10, 21, 14, 45, 14, 45));
+
+        Assert.Contains(RiskRejectionCode.OutsideTradingSession, beforeSpecialOpen.RejectionCodes);
+        Assert.True(atSpecialOpen.Approved);
+        Assert.Contains(RiskRejectionCode.OutsideTradingSession, atSpecialClose.RejectionCodes);
+    }
+
+    [Fact]
+    public void Early_or_special_session_close_caps_mandatory_exit()
+    {
+        var calendar = CanonicalCalendar();
+        var afterMuhuratClose = Evaluate(calendar, RequestAt(2025, 10, 21, 13, 45, 14, 46));
+        var afterEarlyClose = Evaluate(calendar, RequestAt(2025, 12, 24, 9, 15, 13, 1));
+
+        Assert.Contains(RiskRejectionCode.OvernightPositionForbidden, afterMuhuratClose.RejectionCodes);
+        Assert.Contains(RiskRejectionCode.OvernightPositionForbidden, afterEarlyClose.RejectionCodes);
+    }
+
+    [Fact]
+    public void Normal_entry_policy_boundaries_are_start_inclusive_and_end_exclusive()
+    {
+        var calendar = CanonicalCalendar();
+        Assert.True(Evaluate(calendar, RequestAt(2025, 2, 3, 9, 15, 15, 25)).Approved);
+        Assert.Contains(RiskRejectionCode.OutsideTradingSession,
+            Evaluate(calendar, RequestAt(2025, 2, 3, 15, 0, 15, 25)).RejectionCodes);
+    }
+
+    [Fact]
+    public void Calendar_identity_and_rules_are_bound_into_decision_fingerprint()
+    {
+        var request = RequestAt(2025, 2, 3, 10, 0, 15, 20);
+        var first = Evaluate(CanonicalCalendar(), request);
+        var changed = new ExchangeSessionCalendar("nse-2025-v2", India, new(9, 15), new(15, 30),
+            new HashSet<DateOnly> { new(2025, 2, 26), new(2025, 3, 14) },
+            new Dictionary<DateOnly, ExchangeSession>
+            {
+                [new(2025, 2, 1)] = new(new(2025, 2, 1), new(9, 15), new(15, 30)),
+                [new(2025, 10, 21)] = new(new(2025, 10, 21), new(13, 30), new(14, 45))
+            });
+        var second = Evaluate(changed, request);
+
+        Assert.Equal(CanonicalCalendar().Sha256, first.CalendarSha256);
+        Assert.NotEqual(first.CalendarSha256, second.CalendarSha256);
+        Assert.NotEqual(first.DecisionSha256, second.DecisionSha256);
+    }
+
+    [Fact]
     public void Invalid_allocation_and_future_history_are_rejected()
     {
         var settings = new DeterministicRiskPolicySettings { Capital = new(TotalCapital: 299_999m) };
-        Assert.Throws<ArgumentException>(() => DeterministicRiskPolicy.Evaluate(settings, State(), Request(), India));
+        Assert.Throws<ArgumentException>(() => DeterministicRiskPolicy.Evaluate(settings, State(), Request(), Calendar()));
         var future = Closed(10m, At(2026, 9, 15, 12, 0), At(2026, 9, 15, 12, 30));
         Assert.Throws<ArgumentException>(() => Evaluate(State(closed: [future]), Request(entryHour: 10)));
     }
@@ -130,7 +196,7 @@ public sealed class DeterministicRiskPolicyTests
         var request = new TradeSizingRiskRequest(Guid.NewGuid(), Strategy, Instrument,
             At(2026, 9, 15, 10, 0), At(2026, 9, 15, 15, 20), 100m, 95m,
             25, null, TradingCapitalPool.Active);
-        var decision = DeterministicRiskPolicy.EvaluateAndSize(new(), state, request, India);
+        var decision = DeterministicRiskPolicy.EvaluateAndSize(new(), state, request, Calendar());
 
         Assert.True(decision.Approved);
         Assert.Equal(100, decision.PositionSize.Quantity);
@@ -145,7 +211,7 @@ public sealed class DeterministicRiskPolicyTests
         var request = new TradeSizingRiskRequest(Guid.NewGuid(), Strategy, Instrument,
             At(2026, 9, 15, 10, 0), At(2026, 9, 15, 15, 20), 100m, 50m,
             25, null, TradingCapitalPool.Active);
-        var decision = DeterministicRiskPolicy.EvaluateAndSize(new(), State(), request, India);
+        var decision = DeterministicRiskPolicy.EvaluateAndSize(new(), State(), request, Calendar());
 
         Assert.False(decision.Approved);
         Assert.False(decision.CanFundWholeLot);
@@ -153,13 +219,29 @@ public sealed class DeterministicRiskPolicyTests
     }
 
     private static RiskDecision Evaluate(RiskPortfolioState state, TradeRiskRequest request) =>
-        DeterministicRiskPolicy.Evaluate(new(), state, request, India);
+        DeterministicRiskPolicy.Evaluate(new(), state, request, Calendar());
+    private static RiskDecision Evaluate(ExchangeSessionCalendar calendar, TradeRiskRequest request) =>
+        DeterministicRiskPolicy.Evaluate(new(), State(), request, calendar);
+    private static ExchangeSessionCalendar Calendar() => new("nse-test", India, new(9, 15), new(15, 30),
+        new HashSet<DateOnly>(), new Dictionary<DateOnly, ExchangeSession>());
     private static RiskPortfolioState State(decimal availableCash = 100_000m,
         IReadOnlyList<ClosedRiskTrade>? closed = null, IReadOnlyList<OpenRiskPosition>? open = null) =>
         new(availableCash, false, new HashSet<string> { Strategy }, closed ?? [], open ?? []);
     private static TradeRiskRequest Request(int entryHour = 10) => new(Guid.Parse("aaaaaaaa-1818-1818-1818-181818181818"),
         Strategy, Instrument, At(2026, 9, 15, entryHour, 0), At(2026, 9, 15, 15, 20),
         750m, 10_000m, TradingCapitalPool.Active);
+    private static TradeRiskRequest RequestAt(int year, int month, int day, int entryHour, int entryMinute,
+        int exitHour, int exitMinute) => new(Guid.Parse("aaaaaaaa-1818-1818-1818-181818181818"),
+        Strategy, Instrument, At(year, month, day, entryHour, entryMinute),
+        At(year, month, day, exitHour, exitMinute), 750m, 10_000m, TradingCapitalPool.Active);
+    private static ExchangeSessionCalendar CanonicalCalendar() => new("nse-2025-v2", India,
+        new(9, 15), new(15, 30), new HashSet<DateOnly> { new(2025, 2, 26), new(2025, 3, 14) },
+        new Dictionary<DateOnly, ExchangeSession>
+        {
+            [new(2025, 2, 1)] = new(new(2025, 2, 1), new(9, 15), new(15, 30)),
+            [new(2025, 10, 21)] = new(new(2025, 10, 21), new(13, 45), new(14, 45)),
+            [new(2025, 12, 24)] = new(new(2025, 12, 24), new(9, 15), new(13, 0))
+        });
     private static ClosedRiskTrade Closed(decimal pnl, DateTime entry, DateTime exit) =>
         new(Guid.NewGuid(), Strategy, Instrument, entry, exit, 750m, pnl);
     private static DateTime At(int year, int month, int day, int hour, int minute) =>

@@ -1,6 +1,7 @@
 using Trading.Execution.Automation;
 using Trading.Execution.Qualification;
 using Trading.Execution.Reconciliation;
+using Trading.Application.Execution;
 
 namespace Trading.IntegrationTests;
 
@@ -45,6 +46,63 @@ public sealed class QualificationAndAutomationTests
     }
 
     [Fact]
+    public void DurablePaperQualification_uses_every_session_and_is_deterministic_for_cutoff()
+    {
+        var qualificationId = Guid.NewGuid(); var start = Now.AddDays(-10); var cutoff = Now;
+        var sessions = Enumerable.Range(0, 10).Select(index => new VerifiedPaperSession(
+            Guid.Parse($"00000000-0000-0000-0000-{index + 1:000000000000}"), start.AddDays(index),
+            DateOnly.FromDateTime(start.AddDays(index)), "strategy-v1", Hash(index + 10), 4, 4, 0,
+            index == 9 ? -1_000m : 100m)).ToArray();
+
+        var first = PaperQualificationEngine.EvaluateDurable(qualificationId, HashA, Guid.NewGuid(), HashB,
+            "strategy-v1", start, cutoff, Now.AddDays(30), sessions.Length, sessions, []);
+        var second = PaperQualificationEngine.EvaluateDurable(qualificationId, HashA, first.CertificateId, HashB,
+            "strategy-v1", start, cutoff, Now.AddDays(30), sessions.Length, sessions.Reverse().ToArray(), []);
+
+        Assert.Equal(10, first.DiscoveredSessionCount);
+        Assert.Equal(10, first.AcceptedSessionCount);
+        Assert.Equal(-100m, first.AggregateNetPnl);
+        Assert.Equal(sessions.Select(item => item.ArtifactSha256).OrderBy(hash => hash),
+            first.IncludedSessions!.Select(item => item.ArtifactSha256).OrderBy(hash => hash));
+        Assert.Equal(first.PaperQualificationSha256, second.PaperQualificationSha256);
+        Assert.Equal(PaperQualificationStatus.Rejected, first.Status);
+    }
+
+    [Fact]
+    public void DurablePaperQualification_rejects_duplicates_and_altered_evidence()
+    {
+        var start = Now.AddDays(-2);
+        var duplicate = new VerifiedPaperSession(Guid.NewGuid(), start.AddHours(1), new(2026, 9, 21),
+            "strategy-v1", Hash(20), 4, 4, 0, 100m);
+        Assert.Throws<ArgumentException>(() => PaperQualificationEngine.EvaluateDurable(Guid.NewGuid(), HashA,
+            Guid.NewGuid(), HashB, "strategy-v1", start, Now, Now.AddDays(30), 2,
+            [duplicate, duplicate], []));
+
+        var accepted = Enumerable.Range(0, 9).Select(index => new VerifiedPaperSession(Guid.NewGuid(),
+            start.AddHours(index + 1), new(2026, 9, 21), "strategy-v1", Hash(index + 30), 4, 4, 0, 100m)).ToArray();
+        var alteredId = Guid.NewGuid();
+        var result = PaperQualificationEngine.EvaluateDurable(Guid.NewGuid(), HashA, Guid.NewGuid(), HashB,
+            "strategy-v1", start, Now, Now.AddDays(30), 10, accepted,
+            [new(alteredId, "artifact-hash-invalid")]);
+
+        Assert.Equal(10, result.DiscoveredSessionCount);
+        Assert.Equal(9, result.AcceptedSessionCount);
+        Assert.Equal(alteredId, Assert.Single(result.RejectedSessions!).SessionId);
+        Assert.Contains("rejected-session-evidence", result.FailureCodes);
+        Assert.False(result.EligibleForLiveReconciliation);
+    }
+
+    [Fact]
+    public void DurablePaperQualification_rejects_pre_M34_session_input()
+    {
+        var start = Now.AddDays(-1);
+        var session = new VerifiedPaperSession(Guid.NewGuid(), start.AddTicks(-1), new(2026, 9, 21),
+            "strategy-v1", Hash(50), 4, 4, 0, 100m);
+        Assert.Throws<ArgumentException>(() => PaperQualificationEngine.EvaluateDurable(Guid.NewGuid(), HashA,
+            Guid.NewGuid(), HashB, "strategy-v1", start, Now, Now.AddDays(30), 1, [session], []));
+    }
+
+    [Fact]
     public void LiveReconciliation_DetectsPositionAndOrderDivergence()
     {
         var request = Guid.NewGuid();
@@ -69,12 +127,12 @@ public sealed class QualificationAndAutomationTests
     public void ControlledAutomation_AllowsOneConfirmedDirectActionWhenEveryGateIsOpen()
     {
         var intent = new ControlledAutomationIntent(Guid.NewGuid(), ControlledAutomationMode.DirectLive,
-            "signal-001", 1, 0, 0, true, "ALLOW-CONTROLLED-AUTOMATION");
+            "signal-001", 1, true, "ALLOW-CONTROLLED-AUTOMATION");
         var settings = new ControlledAutomationSettings { Enabled = true, AllowDirectLive = true,
             KillSwitchEngaged = false };
 
         var result = ControlledAutomationEngine.Evaluate(Guid.NewGuid(), HashA, Guid.NewGuid(), HashB,
-            Guid.NewGuid(), HashC, "strategy-v1", Now.AddSeconds(-1), intent, Now, settings);
+            Guid.NewGuid(), HashC, "strategy-v1", Now.AddSeconds(-1), intent, State(), Now, settings);
 
         Assert.Equal(ControlledAutomationDecision.DirectSubmissionEligible, result.Decision);
         Assert.Equal(1, result.MaximumAuthorizedActions);
@@ -86,10 +144,11 @@ public sealed class QualificationAndAutomationTests
     public void ControlledAutomation_BlocksByDefaultAndReportsEveryFailedGate()
     {
         var intent = new ControlledAutomationIntent(Guid.NewGuid(), ControlledAutomationMode.DirectLive,
-            "signal-002", 1, 1, 1500m, false, null);
+            "signal-002", 1, false, null);
 
         var result = ControlledAutomationEngine.Evaluate(Guid.NewGuid(), HashA, Guid.NewGuid(), HashB,
-            Guid.NewGuid(), HashC, "strategy-v1", Now.AddSeconds(-31), intent, Now);
+            Guid.NewGuid(), HashC, "strategy-v1", Now.AddSeconds(-31), intent,
+            State(consumed: 1, pnl: -1500m), Now);
 
         Assert.Equal(ControlledAutomationDecision.Blocked, result.Decision);
         Assert.Contains("automation-disabled", result.BlockCodes);
@@ -101,5 +160,43 @@ public sealed class QualificationAndAutomationTests
         Assert.Equal(0, result.MaximumAuthorizedActions);
     }
 
+    [Fact]
+    public void Durable_state_blocks_loss_unresolved_position_stale_and_unavailable_paths()
+    {
+        var intent = new ControlledAutomationIntent(Guid.NewGuid(), ControlledAutomationMode.DirectLive,
+            "signal-state", 1, true, "ALLOW-CONTROLLED-AUTOMATION");
+        var settings = new ControlledAutomationSettings { Enabled = true, AllowDirectLive = true,
+            KillSwitchEngaged = false };
+        ControlledAutomationArtifact Evaluate(ControlledAutomationStateSnapshot state) =>
+            ControlledAutomationEngine.Evaluate(Guid.NewGuid(), HashA, Guid.NewGuid(), HashB,
+                Guid.NewGuid(), HashC, "strategy-v1", Now.AddSeconds(-1), intent, state, Now, settings);
+
+        Assert.Contains("daily-action-limit-exceeded", Evaluate(State(consumed: 1)).BlockCodes);
+        Assert.Contains("daily-loss-limit-reached", Evaluate(State(pnl: -1500m)).BlockCodes);
+        Assert.Contains("unresolved-broker-submission", Evaluate(State(unresolved: 1)).BlockCodes);
+        Assert.Contains("active-broker-position", Evaluate(State(openPositions: 1)).BlockCodes);
+        Assert.Contains("execution-state-stale", Evaluate(State() with { AsOfUtc = Now.AddSeconds(-31) }).BlockCodes);
+        Assert.Contains("execution-state-unavailable", Evaluate(State() with
+            { Available = false, EvidenceSha256 = string.Empty, UnavailableReason = "missing" }).BlockCodes);
+    }
+
+    [Fact]
+    public void Positive_realized_pnl_does_not_increase_action_limit()
+    {
+        var intent = new ControlledAutomationIntent(Guid.NewGuid(), ControlledAutomationMode.DirectLive,
+            "signal-profit", 1, true, "ALLOW-CONTROLLED-AUTOMATION");
+        var settings = new ControlledAutomationSettings { Enabled = true, AllowDirectLive = true,
+            KillSwitchEngaged = false };
+        var result = ControlledAutomationEngine.Evaluate(Guid.NewGuid(), HashA, Guid.NewGuid(), HashB,
+            Guid.NewGuid(), HashC, "strategy-v1", Now.AddSeconds(-1), intent,
+            State(consumed: 1, pnl: 100_000m), Now, settings);
+        Assert.Contains("daily-action-limit-exceeded", result.BlockCodes);
+        Assert.DoesNotContain("daily-loss-limit-reached", result.BlockCodes);
+    }
+
     private static string Hash(int index) => index.ToString("x64");
+    private static ControlledAutomationStateSnapshot State(int consumed = 0, decimal pnl = 0,
+        int unresolved = 0, int openPositions = 0) =>
+        new(Now.AddSeconds(-1), new(2026, 9, 23), true, consumed, consumed, pnl, unresolved, openPositions,
+            new string('d', 64), string.Empty);
 }

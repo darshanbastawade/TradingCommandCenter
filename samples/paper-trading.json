@@ -6,6 +6,7 @@
   "maximumTickAgeSeconds": 5,
   "killSwitchEngaged": false,
   "operatorApproved": true,
+  "quoteQualityPolicy": "requireBestBidAsk",
   "orders": [
     {
       "requestId": "22222222-2222-2222-2222-222222222223",

@@ -20,6 +20,9 @@ public sealed class TradingDbContext(DbContextOptions<TradingDbContext> options)
     public DbSet<MarketFeedCapture> MarketFeedCaptures => Set<MarketFeedCapture>();
     public DbSet<PaperTradingSession> PaperTradingSessions => Set<PaperTradingSession>();
     public DbSet<LiveOrderRecord> LiveOrders => Set<LiveOrderRecord>();
+    public DbSet<ControlledAutomationAuthorization> ControlledAutomationAuthorizations => Set<ControlledAutomationAuthorization>();
+    public DbSet<ReconciledExecutionState> ReconciledExecutionStates => Set<ReconciledExecutionState>();
+    public DbSet<InternalTradingLedgerSnapshot> InternalTradingLedgerSnapshots => Set<InternalTradingLedgerSnapshot>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -235,6 +238,13 @@ public sealed class TradingDbContext(DbContextOptions<TradingDbContext> options)
             table.HasCheckConstraint("CK_PaperTradingSessions_Cash", "[InitialCash] > 0 AND [EndingCash] >= 0");
             table.HasCheckConstraint("CK_PaperTradingSessions_Counts",
                 "[SubmittedOrders] > 0 AND [FilledTrades] >= 0 AND [RejectedOrders] >= 0 AND [FilledTrades] + [RejectedOrders] = [SubmittedOrders]");
+            table.HasCheckConstraint("CK_PaperTradingSessions_QualificationLineage",
+                "([StrategyQualificationId] IS NULL AND [StrategyQualificationSha256] IS NULL AND " +
+                "[QualificationCertificateId] IS NULL AND [QualificationCertificateSha256] IS NULL AND " +
+                "[QualificationStartedAtUtc] IS NULL) OR ([StrategyQualificationId] IS NOT NULL AND " +
+                "[StrategyQualificationSha256] IS NOT NULL AND [QualificationCertificateId] IS NOT NULL AND " +
+                "[QualificationCertificateSha256] IS NOT NULL AND [QualificationStartedAtUtc] IS NOT NULL AND " +
+                "[CreatedAtUtc] >= [QualificationStartedAtUtc])");
         });
         paperSession.HasKey(x => x.Id);
         paperSession.Property(x => x.Id).ValueGeneratedNever();
@@ -247,7 +257,13 @@ public sealed class TradingDbContext(DbContextOptions<TradingDbContext> options)
         paperSession.Property(x => x.ArtifactSha256).HasMaxLength(64).IsFixedLength().IsRequired();
         paperSession.Property(x => x.ConfigurationSha256).HasMaxLength(64).IsFixedLength().IsRequired();
         paperSession.Property(x => x.ArtifactJson).IsRequired();
+        paperSession.Property(x => x.StrategyQualificationSha256).HasMaxLength(64).IsFixedLength();
+        paperSession.Property(x => x.QualificationCertificateSha256).HasMaxLength(64).IsFixedLength();
+        paperSession.Property(x => x.QualificationStartedAtUtc).HasColumnType("datetime2(7)")
+            .HasConversion(value => value, value => value.HasValue ?
+                DateTime.SpecifyKind(value.Value, DateTimeKind.Utc) : null);
         paperSession.HasIndex(x => x.CreatedAtUtc);
+        paperSession.HasIndex(x => new { x.StrategyQualificationId, x.CreatedAtUtc });
         paperSession.HasIndex(x => new { x.StrategyCertificateId, x.MarketFeedCaptureId,
             x.ConfigurationSha256 }).IsUnique();
         paperSession.HasOne<IssuedStrategyCertificate>().WithMany().HasForeignKey(x => x.StrategyCertificateId)
@@ -284,5 +300,63 @@ public sealed class TradingDbContext(DbContextOptions<TradingDbContext> options)
         liveOrder.HasIndex(x => x.RequestId).IsUnique();
         liveOrder.HasOne<IssuedStrategyCertificate>().WithMany().HasForeignKey(x => x.StrategyCertificateId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        var authorization = modelBuilder.Entity<ControlledAutomationAuthorization>();
+        authorization.ToTable("ControlledAutomationAuthorizations", table =>
+        {
+            table.HasCheckConstraint("CK_ControlledAutomationAuthorizations_Decision",
+                "[Decision] = 'DirectSubmissionEligible'");
+            table.HasCheckConstraint("CK_ControlledAutomationAuthorizations_Actions",
+                "[MaximumAuthorizedActions] = 1 AND [ConsumedActions] = 1");
+            table.HasCheckConstraint("CK_ControlledAutomationAuthorizations_Validity",
+                "[EvaluatedAtUtc] <= [FirstConsumedAtUtc] AND [FirstConsumedAtUtc] < [ExpiresAtUtc]");
+        });
+        authorization.HasKey(x => x.AutomationDecisionId);
+        authorization.Property(x => x.AutomationDecisionId).ValueGeneratedNever();
+        authorization.Property(x => x.AutomationSha256).HasMaxLength(64).IsFixedLength().IsRequired();
+        authorization.Property(x => x.ActionReference).HasMaxLength(128).IsRequired();
+        authorization.Property(x => x.StrategyId).HasMaxLength(128).IsRequired();
+        authorization.Property(x => x.Decision).HasMaxLength(32).IsRequired();
+        foreach (var property in new[] { nameof(ControlledAutomationAuthorization.EvaluatedAtUtc),
+                     nameof(ControlledAutomationAuthorization.ExpiresAtUtc),
+                     nameof(ControlledAutomationAuthorization.FirstConsumedAtUtc),
+                     nameof(ControlledAutomationAuthorization.LastConsumedAtUtc) })
+            authorization.Property<DateTime>(property).HasColumnType("datetime2(7)")
+                .HasConversion(value => value, value => DateTime.SpecifyKind(value, DateTimeKind.Utc));
+        authorization.HasIndex(x => x.AutomationSha256).IsUnique();
+        authorization.HasIndex(x => x.ActionId).IsUnique();
+        authorization.HasIndex(x => x.RelatedLiveOrderId).IsUnique();
+        authorization.HasOne<LiveOrderRecord>().WithOne().HasForeignKey<ControlledAutomationAuthorization>(x => x.RelatedLiveOrderId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        var executionState = modelBuilder.Entity<ReconciledExecutionState>();
+        executionState.ToTable("ReconciledExecutionStates", table =>
+        {
+            table.HasCheckConstraint("CK_ReconciledExecutionStates_Counts",
+                "[UnresolvedBrokerSubmissions] >= 0 AND [ActiveOpenBrokerPositions] >= 0");
+        });
+        executionState.HasKey(x => x.Id);
+        executionState.Property(x => x.Id).ValueGeneratedNever();
+        executionState.Property(x => x.AsOfUtc).HasColumnType("datetime2(7)")
+            .HasConversion(value => value, value => DateTime.SpecifyKind(value, DateTimeKind.Utc));
+        executionState.Property(x => x.ExchangeTradingDate).HasColumnType("date");
+        executionState.Property(x => x.RealizedPnlToday).HasColumnType("decimal(18,4)").HasPrecision(18, 4);
+        executionState.Property(x => x.ReconciliationSha256).HasMaxLength(64).IsFixedLength().IsRequired();
+        executionState.Property(x => x.SourceRevision).HasMaxLength(128).IsRequired();
+        executionState.HasIndex(x => new { x.ExchangeTradingDate, x.AsOfUtc }).IsUnique();
+        executionState.HasIndex(x => x.ReconciliationId).IsUnique();
+
+        var internalLedger = modelBuilder.Entity<InternalTradingLedgerSnapshot>();
+        internalLedger.ToTable("InternalTradingLedgerSnapshots");
+        internalLedger.HasKey(x => x.Id);
+        internalLedger.Property(x => x.Id).ValueGeneratedNever();
+        internalLedger.Property(x => x.AsOfUtc).HasColumnType("datetime2(7)")
+            .HasConversion(value => value, value => DateTime.SpecifyKind(value, DateTimeKind.Utc));
+        internalLedger.Property(x => x.StrategyId).HasMaxLength(128).IsRequired();
+        internalLedger.Property(x => x.Revision).HasMaxLength(128).IsRequired();
+        internalLedger.Property(x => x.ArtifactSha256).HasMaxLength(64).IsFixedLength().IsRequired();
+        internalLedger.Property(x => x.ArtifactJson).IsRequired();
+        internalLedger.HasIndex(x => new { x.StrategyId, x.AsOfUtc }).IsUnique();
+        internalLedger.HasIndex(x => x.ArtifactSha256).IsUnique();
     }
 }

@@ -51,7 +51,9 @@ public static class StrategyCertificateV2Commands
                 strategyId, research.SourceRevision, research.Dataset.DatasetSha256, Sha256(researchJson),
                 specification.SpecificationSha256, ParametersHash(specification.Specification.Parameters),
                 native.ResultSha256, comparison.LeanResultSha256, comparison.ComparisonSha256,
-                robustness.ArtifactSha256, score, comparison.Verdict == CrossEngineVerdict.Pass,
+                robustness.ArtifactSha256, score,
+                BacktestRunCodec.VerifyExternalValidation(comparison.IndependentValidation),
+                comparison.Verdict == CrossEngineVerdict.Pass,
                 comparison.MatchedTradeRate, comparison.EntryTimestampMatchRate,
                 comparison.ExitTimestampMatchRate,
                 Math.Max(comparison.MaximumEntryPriceDeviationBasisPoints,
@@ -93,6 +95,7 @@ public static class StrategyCertificateV2Commands
             research.Dataset.DatasetSha256 != specification.Specification.Data.DatasetSha256 ||
             comparison.SpecificationSha256 != specification.SpecificationSha256 ||
             comparison.NativeResultSha256 != native.ResultSha256 ||
+            !BacktestRunCodec.VerifyExternalValidation(comparison.IndependentValidation) ||
             comparison.DatasetSha256 != native.DeclaredDatasetSha256 ||
             comparison.ConsumedMarketDataSha256 != native.ConsumedMarketDataSha256 ||
             robustness.SourceResultSha256 != native.ResultSha256 ||

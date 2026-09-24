@@ -48,10 +48,12 @@ public sealed class NativeBacktestEngine(IMarketDataStore marketData) : IBacktes
             TimeZoneInfo.FindSystemTimeZoneById(specification.Data.ExchangeTimeZoneId), Settings(specification));
         cancellationToken.ThrowIfCancellationRequested();
 
+        var mappedTrades = result.Trades.Select(Map).ToArray();
+        var netPnl = mappedTrades.Sum(item => item.NetPnl);
         var run = new BacktestRun(1, EngineId, EngineVersion, Role, sealedSpecification.SpecificationSha256,
             specification.Data.DatasetSha256, Fingerprint(specification, candles), result.InitialCapital,
-            result.FinalCapital, result.NetPnl, result.WinningTrades, result.LosingTrades,
-            result.Trades.Select(Map).ToArray(),
+            result.InitialCapital + netPnl, netPnl, result.WinningTrades, result.LosingTrades,
+            mappedTrades,
             result.IgnoredCandidates.Select(item => new BacktestRunIgnoredCandidate(item.SignalTimeUtc,
                 Kebab(item.Reason.ToString()))).ToArray(), string.Empty);
         return BacktestRunCodec.Seal(run);

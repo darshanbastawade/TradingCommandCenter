@@ -25,9 +25,9 @@ public static class RiskPolicyCommands
             var state = new RiskPortfolioState(input.AvailableCash, input.KillSwitchEngaged,
                 new HashSet<string>(input.QualifiedStrategyIds ?? [], StringComparer.Ordinal),
                 input.ClosedTrades ?? [], input.OpenPositions ?? []);
-            var zone = TimeZoneInfo.FindSystemTimeZoneById("India Standard Time");
+            var calendar = await ExchangeCalendarLoader.LoadAsync(configuration, cancellationToken);
             var decision = DeterministicRiskPolicy.EvaluateAndSize(settings, state,
-                input.Request ?? throw new ArgumentException("A risk request is required."), zone);
+                input.Request ?? throw new ArgumentException("A risk request is required."), calendar);
             await output.WriteLineAsync(JsonSerializer.Serialize(decision, JsonOptions));
             return 0;
         }

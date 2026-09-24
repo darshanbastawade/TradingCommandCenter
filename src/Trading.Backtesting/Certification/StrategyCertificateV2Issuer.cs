@@ -55,6 +55,7 @@ public static class StrategyCertificateV2Issuer
         var failures = new List<string>();
         if (!source.Qualification.Qualified || source.Qualification.QualificationFailures.Count != 0)
             failures.Add("research-ranking-not-qualified");
+        if (!source.GenuineLeanValidation) failures.Add("genuine-lean-validation-missing");
         if (!source.CrossEnginePassed) failures.Add("cross-engine-comparison-failed");
         if (source.CrossEngineMatchedTradeRate < policy.MinimumCrossEngineMatchedTradeRate)
             failures.Add("cross-engine-match-rate-below-minimum");

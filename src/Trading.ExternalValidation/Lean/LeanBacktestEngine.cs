@@ -8,7 +8,7 @@ public sealed class LeanBacktestEngine(IMarketDataStore marketData, ILeanProcess
     LeanOptions options) : IBacktestEngine
 {
     public const string Id = "lean";
-    public const string AdapterVersion = "1";
+    public const string AdapterVersion = "2";
     public string EngineId => Id;
     public string EngineVersion => $"{AdapterVersion}:{options.Image}";
     public BacktestEngineRole Role => BacktestEngineRole.IndependentValidation;
@@ -40,8 +40,9 @@ public sealed class LeanBacktestEngine(IMarketDataStore marketData, ILeanProcess
         var candles = await ReadAllAsync(instrument.Id,
             (Timeframe)specification.Data.TimeframeMinutes, specification.Data.FromUtc,
             specification.Data.ToUtc, cancellationToken);
+        var project = LeanAlgorithmProject.Verify(options.ProjectDirectory, specification.StrategyId);
         var mapped = await LeanInputMapper.WriteAsync(options.DataDirectory,
-            sealedSpecification, candles, cancellationToken);
+            sealedSpecification, candles, project, options.Image, cancellationToken);
         try
         {
             var output = await runner.RunAsync(mapped, cancellationToken);

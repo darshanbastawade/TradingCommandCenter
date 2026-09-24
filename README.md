@@ -1,6 +1,6 @@
-# Trading Command Center — M37
+# Trading Command Center — M38.10
 
-SQL Server is configured for `DESKTOP-EF1NCS7 / Market`. See [M37 controlled automation](docs/M37.md), [M36 live reconciliation](docs/M36.md), [M35 paper qualification](docs/M35.md), [M34 qualified strategy pipeline](docs/M34.md), [M33 Astra Research Analyst V2](docs/M33.md), [M32 Strategy Certificate V2](docs/M32.md), and [M31 robustness suite](docs/M31.md). Local-first modular monolith. C# owns authoritative calculations and hard risk gates; vectorbt screens research candidates; LEAN can independently validate runs after a separate algorithm is configured; SQL and immutable artifacts preserve evidence; Azure OpenAI explains verified results; the operator retains final authority.
+SQL Server is configured for `DESKTOP-EF1NCS7 / Market`. See [M38.10 CI and verification closure](docs/M38.10.md), [M38.9 real LEAN validation closure](docs/M38.9.md), and the linked progression milestones. Local-first modular monolith. C# owns authoritative calculations and hard risk gates; vectorbt screens parity-verified research candidates; the separately maintained LEAN project independently validates the first strategy when its local runtime is configured; SQL and immutable artifacts preserve evidence; Azure OpenAI explains verified results; the operator retains final authority.
 
 ## Start in VS Code
 
@@ -16,6 +16,8 @@ dotnet run --project src/Trading.Api --launch-profile http
 ```
 
 Open http://localhost:5080 for the overview, `/candidates` for M26–M28 screening, `/reports` for certified research, `/certificates` for qualification evidence, `/analyses` for the Astra workflow, `/feeds` for market captures, `/paper` for simulation, and `/live` for the M23 boundary. `/health` checks application liveness only; `/api/status` reports the milestone. Stop with Ctrl+C. In VS Code, Ctrl+Shift+B builds and F5 starts the debugger. The `test` task runs all four test projects.
+
+Every push and pull request runs the single branch-protection status `CI / verify`: pinned-SDK locked restore, full Release build, all .NET tests, the pinned vectorbt worker smoke, and all five native/Python parity fixtures. See [M38.10](docs/M38.10.md). Official LEAN execution remains a separate manual workflow on a dedicated validation runner.
 
 ### Why .NET 10 instead of .NET 8?
 
@@ -53,11 +55,11 @@ Versions are centralized in `Directory.Packages.props`; each project commits `pa
 - M23 uses framework `HttpClient` for Zerodha funds, positions, day orders, quotes and guarded LIMIT buys. The shared kill switch defaults to engaged and both direct-order gates default to false.
 - M24 adds a package-free, engine-neutral backtest specification, strict JSON validation, canonical SHA-256 sealing and a portable JSON Schema. It does not add an engine runtime or database migration.
 - M25 adds the common engine interface, an authoritative native C# adapter, portable hash-bound run evidence and an explicit CLI runner. It adds no package or database migration.
-- M26 pins vectorbt 1.1.0 in an isolated Python worker and labels its output research-only.
+- M26 pins vectorbt 1.1.0 in an isolated Python worker, uses a hash-bound exact native signal port for all five strategies, and labels its output research-only.
 - M27 adds bounded deterministic parameter-grid expansion and immutable SQL sweep/candidate evidence.
 - M28 independently verifies selected candidates with native C# and preserves each complete native run.
-- M29 adds a guarded external LEAN engine adapter; actual LEAN execution requires a separately implemented and configured LEAN project.
-- M30 compares sealed native and LEAN runs trade by trade and writes a hash-bound divergence artifact.
+- M29 includes an independent LEAN implementation of `vwap-ema-trend-breakout-v1`, requires an immutable image digest, and binds official output plus source/package hashes into portable evidence.
+- M30 compares sealed native and LEAN runs under the original strict policy and carries genuine LEAN provenance into its hash-bound artifact.
 - M31 runs seeded Monte Carlo, bootstrap, slippage, cost, entry-delay and missed-trade robustness analysis over verified native evidence.
 - M32 binds research, native, LEAN comparison and robustness evidence into Strategy Certificate V2.
 - M33 asks Astra for a tool-free structured interpretation of the complete V2 evidence package.
@@ -65,6 +67,16 @@ Versions are centralized in `Directory.Packages.props`; each project commits `pa
 - M35 qualifies verified M22 paper evidence against durable session, sample, profitability and rejection gates.
 - M36 reconciles expected cash, positions and order state against a fresh broker snapshot and fails on every difference.
 - M37 produces a short-lived, single-action automation eligibility decision; it never submits a broker order itself.
+- M38.1 makes a fresh, exact M37 decision mandatory for every M23 direct submission and records the M34–M37 linkage in schema-v2 live artifacts.
+- M38.2 atomically consumes that authorization in a durable insert-only SQL ledger before broker submission.
+- M38.3 derives daily direct-action counts and realized P&L from durable reconciled execution state; missing, stale, unresolved, or open-position state blocks M37.
+- M38.4 makes production M35 qualification query every M34-linked M22 session from SQL through a fixed cutoff, preventing operator session selection.
+- M38.5 builds production M36 state from fresh Zerodha account data and a verified durable internal ledger; file-based reconciliation is diagnostic and cannot authorize direct automation.
+- M38.6 makes M16.1's immutable, SHA-256-bound exchange calendar authoritative for M18 paper and live risk decisions, including holidays and special sessions.
+- M38.7 makes M22 long-option triggers and exits use the executable bid, requires executable quotes by default, and records any explicit LTP fallback.
+- M38.8 requires exact native C#/Python signal parity before vectorbt may screen a strategy, including native Wilder indicators, session rules and every strategy gate.
+- M38.9 adds the separately maintained LEAN algorithm and prevents M32 qualification when M30 lacks official-runtime provenance.
+- M38.10 adds one branch-protection-ready push/PR verification job for locked .NET builds, the complete test suite, the pinned vectorbt runtime and native/Python parity, plus an optional manual official-LEAN workflow.
 - Tests: Microsoft.NET.Test.Sdk, xUnit, Visual Studio test adapter, Coverlet collector; integration tests also use ASP.NET Core MVC Testing, and unit tests use the dependency-injection container to verify options registration.
 - ASP.NET Core and Blazor use the shared framework. No extra UI framework is needed.
 

@@ -1,4 +1,5 @@
 using Trading.Application.Backtesting;
+using System.Text.Json.Serialization;
 
 namespace Trading.Application.Research;
 
@@ -18,9 +19,16 @@ public sealed record ResearchCandidateMetrics(decimal Score, decimal TotalReturn
 
 public sealed record ResearchWorkerCandidateResult(string CandidateKey, ResearchCandidateMetrics Metrics);
 
+public sealed record ResearchWorkerParityEvidence(string StrategyId, bool Passed,
+    string StrategyPortVersion, string StrategyPortSha256);
+
 public sealed record ResearchWorkerResult(int SchemaVersion, string WorkerId, string WorkerVersion,
     BacktestEngineRole Role, string RequestId, string RequestSha256,
-    IReadOnlyList<ResearchWorkerCandidateResult> Candidates, string EvidenceSha256);
+    IReadOnlyList<ResearchWorkerCandidateResult> Candidates, string EvidenceSha256)
+{
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public ResearchWorkerParityEvidence? ParityEvidence { get; init; }
+}
 
 public interface IResearchBacktestWorker
 {

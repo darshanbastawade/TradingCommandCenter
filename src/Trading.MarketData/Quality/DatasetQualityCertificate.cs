@@ -5,27 +5,6 @@ using Trading.Domain.MarketData;
 
 namespace Trading.MarketData.Quality;
 
-public sealed record ExchangeSession(DateOnly Date, TimeOnly Open, TimeOnly Close);
-
-public sealed record ExchangeSessionCalendar(
-    string Id,
-    TimeZoneInfo TimeZone,
-    TimeOnly DefaultSessionOpen,
-    TimeOnly DefaultSessionClose,
-    IReadOnlySet<DateOnly> Holidays,
-    IReadOnlyDictionary<DateOnly, ExchangeSession> SpecialSessions)
-{
-    public ExchangeSessionCalendar(string id, TimeZoneInfo timeZone, TimeOnly sessionOpen,
-        TimeOnly sessionClose, IReadOnlySet<DateOnly> holidays)
-        : this(id, timeZone, sessionOpen, sessionClose, holidays,
-            new Dictionary<DateOnly, ExchangeSession>())
-    {
-    }
-
-    public TimeOnly SessionOpen => DefaultSessionOpen;
-    public TimeOnly SessionClose => DefaultSessionClose;
-}
-
 public sealed record ExchangeCalendarEntries(
     IReadOnlySet<DateOnly> Holidays,
     IReadOnlyDictionary<DateOnly, ExchangeSession> SpecialSessions);
@@ -111,7 +90,7 @@ public static class DatasetQualityCertifier
             .Select(candle => Session(candle.OpenTimeUtc, calendar.TimeZone))
             .Distinct()
             .Count();
-        var calendarSha256 = CalendarFingerprint(calendar);
+        var calendarSha256 = calendar.Sha256;
         var certificate = new DatasetQualityCertificate(
             3, issues.Count == 0, dataSource.Trim(), dataVersion.Trim(), calendar.Id.Trim(),
             instrumentId, timeframe, fromSession, toSessionExclusive, expectedSessions.Length,
@@ -176,16 +155,7 @@ public static class DatasetQualityCertifier
         out ExchangeSession session)
     {
         ArgumentNullException.ThrowIfNull(calendar);
-        if (calendar.SpecialSessions.TryGetValue(date, out session!)) return true;
-        if (date.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday ||
-            calendar.Holidays.Contains(date))
-        {
-            session = default!;
-            return false;
-        }
-
-        session = new(date, calendar.DefaultSessionOpen, calendar.DefaultSessionClose);
-        return true;
+        return calendar.TryGetSession(date, out session);
     }
 
     private static void ValidateInputs(IReadOnlyList<Candle> candles, Guid instrumentId,
@@ -263,28 +233,6 @@ public static class DatasetQualityCertifier
     private static void Add(List<DatasetQualityIssue> issues, string code, int count, string message)
     {
         if (count > 0) issues.Add(new(code, count, message));
-    }
-
-    private static string CalendarFingerprint(ExchangeSessionCalendar calendar)
-    {
-        var builder = new StringBuilder();
-        builder.Append(calendar.TimeZone.Id).Append('|')
-            .Append(calendar.DefaultSessionOpen.ToString("HH:mm:ss.fffffff", CultureInfo.InvariantCulture))
-            .Append('|')
-            .Append(calendar.DefaultSessionClose.ToString("HH:mm:ss.fffffff", CultureInfo.InvariantCulture))
-            .AppendLine();
-        foreach (var holiday in calendar.Holidays.Order())
-            builder.Append("holiday|")
-                .Append(holiday.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)).AppendLine();
-        foreach (var session in calendar.SpecialSessions.OrderBy(item => item.Key))
-            builder.Append("special|")
-                .Append(session.Key.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)).Append('|')
-                .Append(session.Value.Open.ToString("HH:mm:ss.fffffff", CultureInfo.InvariantCulture))
-                .Append('|')
-                .Append(session.Value.Close.ToString("HH:mm:ss.fffffff", CultureInfo.InvariantCulture))
-                .AppendLine();
-        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(builder.ToString())))
-            .ToLowerInvariant();
     }
 
     private static string Fingerprint(IEnumerable<Candle> candles, Guid instrumentId, Timeframe timeframe,

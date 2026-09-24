@@ -111,6 +111,27 @@ public sealed class CrossEngineTradeComparerTests
         Assert.Contains("exitReason", comparison.Trades[0].Differences);
     }
 
+    [Fact]
+    public void Genuine_lean_provenance_is_bound_into_comparison()
+    {
+        var native = Run("native-csharp", BacktestEngineRole.Authoritative, Trade(0, 10, 10_010));
+        var lean = BacktestRunCodec.Seal(Run("lean", BacktestEngineRole.IndependentValidation,
+            Trade(0, 10, 10_010)) with
+        {
+            ResultSha256 = string.Empty,
+            ExternalValidation = new("QuantConnect LEAN",
+                $"quantconnect/lean@sha256:{new string('a', 64)}", new string('b', 64),
+                new string('c', 64), "lean-vwap-v1", Guid.NewGuid().ToString("N"),
+                new string('d', 64), new string('e', 64))
+        });
+
+        var comparison = CrossEngineTradeComparer.Compare(native, lean);
+
+        Assert.NotNull(comparison.IndependentValidation);
+        Assert.Equal(lean.ExternalValidation, comparison.IndependentValidation);
+        Assert.True(CrossEngineComparisonCodec.Verify(comparison));
+    }
+
     private static BacktestRunTrade Trade(int minute, decimal pnl, decimal capitalAfter) =>
         new("fixture-strategy", Instrument, BacktestRunTradeDirection.Long,
             Start.AddMinutes(minute), Start.AddMinutes(minute + 1), Start.AddMinutes(minute + 5),

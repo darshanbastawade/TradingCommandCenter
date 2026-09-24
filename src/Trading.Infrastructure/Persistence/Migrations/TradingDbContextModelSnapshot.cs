@@ -22,6 +22,116 @@ namespace Trading.Infrastructure.Persistence.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("Trading.Domain.Execution.ControlledAutomationAuthorization", b =>
+                {
+                    b.Property<Guid>("AutomationDecisionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ActionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ActionReference")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<string>("AutomationSha256")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nchar(64)")
+                        .IsFixedLength();
+
+                    b.Property<int>("ConsumedActions")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Decision")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<DateTime>("EvaluatedAtUtc")
+                        .HasColumnType("datetime2(7)");
+
+                    b.Property<DateTime>("ExpiresAtUtc")
+                        .HasColumnType("datetime2(7)");
+
+                    b.Property<DateTime>("FirstConsumedAtUtc")
+                        .HasColumnType("datetime2(7)");
+
+                    b.Property<DateTime>("LastConsumedAtUtc")
+                        .HasColumnType("datetime2(7)");
+
+                    b.Property<int>("MaximumAuthorizedActions")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("RelatedLiveOrderId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("StrategyId")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.HasKey("AutomationDecisionId");
+
+                    b.HasIndex("ActionId")
+                        .IsUnique();
+
+                    b.HasIndex("AutomationSha256")
+                        .IsUnique();
+
+                    b.HasIndex("RelatedLiveOrderId")
+                        .IsUnique();
+
+                    b.ToTable("ControlledAutomationAuthorizations", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_ControlledAutomationAuthorizations_Actions", "[MaximumAuthorizedActions] = 1 AND [ConsumedActions] = 1");
+
+                            t.HasCheckConstraint("CK_ControlledAutomationAuthorizations_Decision", "[Decision] = 'DirectSubmissionEligible'");
+
+                            t.HasCheckConstraint("CK_ControlledAutomationAuthorizations_Validity", "[EvaluatedAtUtc] <= [FirstConsumedAtUtc] AND [FirstConsumedAtUtc] < [ExpiresAtUtc]");
+                        });
+                });
+
+            modelBuilder.Entity("Trading.Domain.Execution.InternalTradingLedgerSnapshot", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ArtifactJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ArtifactSha256")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nchar(64)")
+                        .IsFixedLength();
+
+                    b.Property<DateTime>("AsOfUtc")
+                        .HasColumnType("datetime2(7)");
+
+                    b.Property<string>("Revision")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<string>("StrategyId")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ArtifactSha256")
+                        .IsUnique();
+
+                    b.HasIndex("StrategyId", "AsOfUtc")
+                        .IsUnique();
+
+                    b.ToTable("InternalTradingLedgerSnapshots", (string)null);
+                });
+
             modelBuilder.Entity("Trading.Domain.Execution.LiveOrderRecord", b =>
                 {
                     b.Property<Guid>("Id")
@@ -160,6 +270,17 @@ namespace Trading.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("MarketFeedCaptureId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<Guid?>("QualificationCertificateId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("QualificationCertificateSha256")
+                        .HasMaxLength(64)
+                        .HasColumnType("nchar(64)")
+                        .IsFixedLength();
+
+                    b.Property<DateTime?>("QualificationStartedAtUtc")
+                        .HasColumnType("datetime2(7)");
+
                     b.Property<decimal>("RealizedNetPnl")
                         .HasPrecision(18, 4)
                         .HasColumnType("decimal(18,4)");
@@ -175,6 +296,14 @@ namespace Trading.Infrastructure.Persistence.Migrations
                         .HasMaxLength(128)
                         .HasColumnType("nvarchar(128)");
 
+                    b.Property<Guid?>("StrategyQualificationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("StrategyQualificationSha256")
+                        .HasMaxLength(64)
+                        .HasColumnType("nchar(64)")
+                        .IsFixedLength();
+
                     b.Property<int>("SubmittedOrders")
                         .HasColumnType("int");
 
@@ -184,6 +313,8 @@ namespace Trading.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("MarketFeedCaptureId");
 
+                    b.HasIndex("StrategyQualificationId", "CreatedAtUtc");
+
                     b.HasIndex("StrategyCertificateId", "MarketFeedCaptureId", "ConfigurationSha256")
                         .IsUnique();
 
@@ -192,6 +323,60 @@ namespace Trading.Infrastructure.Persistence.Migrations
                             t.HasCheckConstraint("CK_PaperTradingSessions_Cash", "[InitialCash] > 0 AND [EndingCash] >= 0");
 
                             t.HasCheckConstraint("CK_PaperTradingSessions_Counts", "[SubmittedOrders] > 0 AND [FilledTrades] >= 0 AND [RejectedOrders] >= 0 AND [FilledTrades] + [RejectedOrders] = [SubmittedOrders]");
+
+                            t.HasCheckConstraint("CK_PaperTradingSessions_QualificationLineage", "([StrategyQualificationId] IS NULL AND [StrategyQualificationSha256] IS NULL AND [QualificationCertificateId] IS NULL AND [QualificationCertificateSha256] IS NULL AND [QualificationStartedAtUtc] IS NULL) OR ([StrategyQualificationId] IS NOT NULL AND [StrategyQualificationSha256] IS NOT NULL AND [QualificationCertificateId] IS NOT NULL AND [QualificationCertificateSha256] IS NOT NULL AND [QualificationStartedAtUtc] IS NOT NULL AND [CreatedAtUtc] >= [QualificationStartedAtUtc])");
+                        });
+                });
+
+            modelBuilder.Entity("Trading.Domain.Execution.ReconciledExecutionState", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("ActiveOpenBrokerPositions")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("AsOfUtc")
+                        .HasColumnType("datetime2(7)");
+
+                    b.Property<bool>("Authoritative")
+                        .HasColumnType("bit");
+
+                    b.Property<DateOnly>("ExchangeTradingDate")
+                        .HasColumnType("date");
+
+                    b.Property<decimal>("RealizedPnlToday")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<Guid>("ReconciliationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ReconciliationSha256")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nchar(64)")
+                        .IsFixedLength();
+
+                    b.Property<string>("SourceRevision")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<int>("UnresolvedBrokerSubmissions")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ReconciliationId")
+                        .IsUnique();
+
+                    b.HasIndex("ExchangeTradingDate", "AsOfUtc")
+                        .IsUnique();
+
+                    b.ToTable("ReconciledExecutionStates", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_ReconciledExecutionStates_Counts", "[UnresolvedBrokerSubmissions] >= 0 AND [ActiveOpenBrokerPositions] >= 0");
                         });
                 });
 
@@ -848,6 +1033,15 @@ namespace Trading.Infrastructure.Persistence.Migrations
                     b.HasIndex("InstrumentId", "Timeframe", "FromUtc", "ToUtc");
 
                     b.ToTable("ResearchRuns", (string)null);
+                });
+
+            modelBuilder.Entity("Trading.Domain.Execution.ControlledAutomationAuthorization", b =>
+                {
+                    b.HasOne("Trading.Domain.Execution.LiveOrderRecord", null)
+                        .WithOne()
+                        .HasForeignKey("Trading.Domain.Execution.ControlledAutomationAuthorization", "RelatedLiveOrderId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Trading.Domain.Execution.LiveOrderRecord", b =>

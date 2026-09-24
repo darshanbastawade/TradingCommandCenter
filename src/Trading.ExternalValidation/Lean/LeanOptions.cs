@@ -16,7 +16,13 @@ public sealed record LeanMappedInput(
     string EvidencePath,
     string OutputDirectory,
     string ConsumedMarketDataSha256,
-    int CandleCount);
+    int CandleCount,
+    string RequestPackageSha256,
+    string CandleFileSha256,
+    string StrategyId,
+    string AlgorithmSourceRevision,
+    string StrategyImplementationVersion,
+    string LeanImage);
 
 public sealed record LeanProcessResult(string OfficialResultPath, string EvidencePath);
 

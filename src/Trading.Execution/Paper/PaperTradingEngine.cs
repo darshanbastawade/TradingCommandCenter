@@ -1,10 +1,14 @@
+using System.Text.Json.Serialization;
 using Trading.Application.MarketData;
+using Trading.Domain.MarketData;
 using Trading.Risk.Policy;
 
 namespace Trading.Execution.Paper;
 
 public enum PaperOrderStatus { FilledAndClosed = 1, RiskRejected = 2, DataRejected = 3 }
 public enum PaperExitReason { Stop = 1, Target = 2, PlannedExit = 3 }
+public enum PaperQuoteQualityPolicy { RequireBestBidAsk = 1, AllowLastPriceFallback = 2 }
+public enum PaperPriceSource { BestAsk = 1, BestBid = 2, LastPriceFallback = 3 }
 
 public sealed record PaperTradeIntent(Guid RequestId, Guid InstrumentId, uint InstrumentToken,
     string Exchange, string TradingSymbol, DateTime SubmittedAtUtc, DateTime PlannedExitUtc,
@@ -14,28 +18,41 @@ public sealed record PaperTradeIntent(Guid RequestId, Guid InstrumentId, uint In
 public sealed record PaperTradingRequest(Guid SessionId, DateTime CreatedAtUtc, string StrategyId,
     decimal InitialCash, decimal SlippageBasisPoints, decimal FeeBasisPointsPerSide,
     decimal FixedFeePerFill, int MaximumTickAgeSeconds, bool KillSwitchEngaged,
-    IReadOnlyList<PaperTradeIntent> Orders, IReadOnlyList<NormalizedMarketTick> Ticks);
+    IReadOnlyList<PaperTradeIntent> Orders, IReadOnlyList<NormalizedMarketTick> Ticks)
+{
+    public PaperQuoteQualityPolicy QuoteQualityPolicy { get; init; } = PaperQuoteQualityPolicy.RequireBestBidAsk;
+}
 
 public sealed record PaperTradeResult(Guid RequestId, PaperOrderStatus Status, string? Rejection,
     uint InstrumentToken, string Exchange, string TradingSymbol, DateTime SubmittedAtUtc,
     DateTime PlannedExitUtc, int Quantity, int Lots, DateTime? EntryUtc, decimal? EntryPrice,
     DateTime? ExitUtc, decimal? ExitPrice, PaperExitReason? ExitReason, decimal? InitialRisk,
     decimal GrossPnl, decimal Fees, decimal NetPnl, string? RiskDecisionSha256,
-    IReadOnlyList<RiskRejectionCode> RiskRejectionCodes);
+    IReadOnlyList<RiskRejectionCode> RiskRejectionCodes)
+{
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public PaperPriceSource? EntryPriceSource { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public PaperPriceSource? ExitPriceSource { get; init; }
+}
 
 public sealed record PaperTradingResult(int SchemaVersion, Guid SessionId, DateTime CreatedAtUtc,
     string StrategyId, decimal InitialCash, decimal EndingCash, decimal RealizedGrossPnl,
     decimal Fees, decimal RealizedNetPnl, int SubmittedOrders, int FilledTrades,
-    int RejectedOrders, IReadOnlyList<PaperTradeResult> Trades);
+    int RejectedOrders, IReadOnlyList<PaperTradeResult> Trades)
+{
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public PaperQuoteQualityPolicy? QuoteQualityPolicy { get; init; }
+}
 
 /// <summary>Deterministically simulates long option purchases from already normalized market ticks.</summary>
 public static class PaperTradingEngine
 {
     public static PaperTradingResult Run(PaperTradingRequest request, DeterministicRiskPolicySettings riskSettings,
-        TimeZoneInfo exchangeTimeZone)
+        ExchangeSessionCalendar calendar)
     {
         ArgumentNullException.ThrowIfNull(request); ArgumentNullException.ThrowIfNull(riskSettings);
-        ArgumentNullException.ThrowIfNull(exchangeTimeZone); Validate(request);
+        ArgumentNullException.ThrowIfNull(calendar); Validate(request);
         var ticks = request.Ticks.OrderBy(item => item.ReceivedAtUtc).ToArray();
         var results = new List<PaperTradeResult>();
         foreach (var order in request.Orders.OrderBy(item => item.SubmittedAtUtc).ThenBy(item => item.RequestId))
@@ -54,16 +71,32 @@ public static class PaperTradingEngine
             {
                 results.Add(Rejected(order, "No exit tick was available after entry.")); continue;
             }
-            var entryPrice = ApplySlippage(entryTick.BestAsk ?? entryTick.LastPrice,
-                request.SlippageBasisPoints, adverseForBuy: true);
+            if (!TryEntryReference(entryTick, request.QuoteQualityPolicy, out var entryReference,
+                    out var entrySource))
+            {
+                results.Add(Rejected(order, "The quote-quality policy requires best ask for entry.")); continue;
+            }
+            var entryPrice = ApplySlippage(entryReference, request.SlippageBasisPoints, adverseForBuy: true);
             if (order.StopPrice >= entryPrice || order.TargetPrice <= entryPrice)
             {
                 results.Add(Rejected(order, "A long paper order requires stop < entry < target.")); continue;
             }
-            var triggered = possibleExits.FirstOrDefault(tick => tick.LastPrice <= order.StopPrice ||
-                tick.LastPrice >= order.TargetPrice);
-            var exitTick = triggered ?? possibleExits[^1];
-            if (triggered is null && order.PlannedExitUtc - exitTick.ReceivedAtUtc >
+            var exitReferences = new List<(NormalizedMarketTick Tick, decimal Price, PaperPriceSource Source)>();
+            foreach (var tick in possibleExits)
+            {
+                if (!TryExitReference(tick, request.QuoteQualityPolicy, out var price, out var source))
+                {
+                    results.Add(Rejected(order, "The quote-quality policy requires best bid for exit."));
+                    exitReferences.Clear(); break;
+                }
+                exitReferences.Add((tick, price, source));
+            }
+            if (exitReferences.Count == 0) continue;
+            var triggered = exitReferences.FirstOrDefault(item =>
+                item.Price <= order.StopPrice || item.Price >= order.TargetPrice);
+            var wasTriggered = triggered.Tick is not null;
+            var exit = wasTriggered ? triggered : exitReferences[^1];
+            if (!wasTriggered && order.PlannedExitUtc - exit.Tick.ReceivedAtUtc >
                 TimeSpan.FromSeconds(request.MaximumTickAgeSeconds))
             {
                 results.Add(Rejected(order, "No fresh tick was available for the planned exit.")); continue;
@@ -88,7 +121,7 @@ public static class PaperTradingEngine
             var risk = DeterministicRiskPolicy.EvaluateAndSize(riskSettings, state,
                 new TradeSizingRiskRequest(order.RequestId, request.StrategyId, order.InstrumentId,
                     entryTick.ReceivedAtUtc, order.PlannedExitUtc, entryPrice, order.StopPrice,
-                    order.LotSize, order.MaximumLots, order.CapitalPool), exchangeTimeZone);
+                    order.LotSize, order.MaximumLots, order.CapitalPool), calendar);
             if (!risk.Approved)
             {
                 results.Add(new(order.RequestId, PaperOrderStatus.RiskRejected, "M18 risk policy rejected the order.",
@@ -98,27 +131,29 @@ public static class PaperTradingEngine
                 continue;
             }
 
-            var exitReason = exitTick.LastPrice <= order.StopPrice ? PaperExitReason.Stop :
-                exitTick.LastPrice >= order.TargetPrice ? PaperExitReason.Target : PaperExitReason.PlannedExit;
-            var exitPrice = ApplySlippage(exitTick.BestBid ?? exitTick.LastPrice,
+            var exitReason = exit.Price <= order.StopPrice ? PaperExitReason.Stop :
+                exit.Price >= order.TargetPrice ? PaperExitReason.Target : PaperExitReason.PlannedExit;
+            var exitPrice = ApplySlippage(exit.Price,
                 request.SlippageBasisPoints, adverseForBuy: false);
             var quantity = risk.PositionSize.Quantity;
             var gross = (exitPrice - entryPrice) * quantity;
             var fees = request.FixedFeePerFill * 2m +
                 ((entryPrice + exitPrice) * quantity * request.FeeBasisPointsPerSide / 10_000m);
             var net = gross - fees;
-            results.Add(new(order.RequestId, PaperOrderStatus.FilledAndClosed, null, order.InstrumentToken,
+            results.Add(new PaperTradeResult(order.RequestId, PaperOrderStatus.FilledAndClosed, null, order.InstrumentToken,
                 order.Exchange, order.TradingSymbol, order.SubmittedAtUtc, order.PlannedExitUtc,
-                quantity, risk.PositionSize.Lots, entryTick.ReceivedAtUtc, entryPrice, exitTick.ReceivedAtUtc,
+                quantity, risk.PositionSize.Lots, entryTick.ReceivedAtUtc, entryPrice, exit.Tick.ReceivedAtUtc,
                 exitPrice, exitReason, risk.PositionSize.TotalRisk, gross, fees, net,
-                risk.DecisionSha256, risk.PolicyDecision.RejectionCodes));
+                risk.DecisionSha256, risk.PolicyDecision.RejectionCodes)
+                { EntryPriceSource = entrySource, ExitPriceSource = exit.Source });
         }
         var filled = results.Where(item => item.Status == PaperOrderStatus.FilledAndClosed).ToArray();
         var grossPnl = filled.Sum(item => item.GrossPnl); var feesTotal = filled.Sum(item => item.Fees);
         var netPnl = filled.Sum(item => item.NetPnl);
-        return new(1, request.SessionId, request.CreatedAtUtc, request.StrategyId, request.InitialCash,
+        return new PaperTradingResult(2, request.SessionId, request.CreatedAtUtc, request.StrategyId, request.InitialCash,
             request.InitialCash + netPnl, grossPnl, feesTotal, netPnl, request.Orders.Count,
-            filled.Length, results.Count - filled.Length, results.AsReadOnly());
+            filled.Length, results.Count - filled.Length, results.AsReadOnly())
+            { QuoteQualityPolicy = request.QuoteQualityPolicy };
     }
 
     private static PaperTradeResult Rejected(PaperTradeIntent order, string reason) =>
@@ -129,6 +164,22 @@ public static class PaperTradingEngine
     private static decimal ApplySlippage(decimal price, decimal basisPoints, bool adverseForBuy) =>
         price * (1m + (adverseForBuy ? basisPoints : -basisPoints) / 10_000m);
 
+    private static bool TryEntryReference(NormalizedMarketTick tick, PaperQuoteQualityPolicy policy,
+        out decimal price, out PaperPriceSource source)
+    {
+        if (tick.BestAsk is > 0) { price = tick.BestAsk.Value; source = PaperPriceSource.BestAsk; return true; }
+        price = tick.LastPrice; source = PaperPriceSource.LastPriceFallback;
+        return policy == PaperQuoteQualityPolicy.AllowLastPriceFallback;
+    }
+
+    private static bool TryExitReference(NormalizedMarketTick tick, PaperQuoteQualityPolicy policy,
+        out decimal price, out PaperPriceSource source)
+    {
+        if (tick.BestBid is > 0) { price = tick.BestBid.Value; source = PaperPriceSource.BestBid; return true; }
+        price = tick.LastPrice; source = PaperPriceSource.LastPriceFallback;
+        return policy == PaperQuoteQualityPolicy.AllowLastPriceFallback;
+    }
+
     private static void Validate(PaperTradingRequest request)
     {
         if (request.SessionId == Guid.Empty || request.CreatedAtUtc.Kind != DateTimeKind.Utc ||
@@ -137,7 +188,7 @@ public static class PaperTradingEngine
             request.FeeBasisPointsPerSide < 0 || request.FeeBasisPointsPerSide > 1000 ||
             request.FixedFeePerFill < 0 || request.MaximumTickAgeSeconds is < 1 or > 300 ||
             request.Orders is null || request.Ticks is null || request.Orders.Count is < 1 or > 1000 ||
-            request.Ticks.Count is < 2 or > 100_000)
+            request.Ticks.Count is < 2 or > 100_000 || !Enum.IsDefined(request.QuoteQualityPolicy))
             throw new ArgumentException("Paper-trading session settings are invalid.", nameof(request));
         if (request.Orders.Select(item => item.RequestId).Distinct().Count() != request.Orders.Count ||
             request.Orders.Any(item => item.RequestId == Guid.Empty || item.InstrumentId == Guid.Empty ||

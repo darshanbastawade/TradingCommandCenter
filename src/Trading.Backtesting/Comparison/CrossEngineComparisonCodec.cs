@@ -13,7 +13,10 @@ public static class CrossEngineComparisonCodec
     public static CrossEngineComparison Seal(CrossEngineComparison comparison)
     {
         ArgumentNullException.ThrowIfNull(comparison);
-        if (comparison.SchemaVersion != 1 || comparison.Trades is null || comparison.Policy is null)
+        if (comparison.SchemaVersion != 1 || comparison.Trades is null || comparison.Policy is null ||
+            comparison.IndependentValidation is not null &&
+            !Trading.Application.Backtesting.BacktestRunCodec.VerifyExternalValidation(
+                comparison.IndependentValidation))
             throw new ArgumentException("Comparison schema is invalid.", nameof(comparison));
         var unsigned = comparison with { ComparisonSha256 = string.Empty };
         var digest = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(

@@ -7,6 +7,8 @@ using Trading.Application.Research;
 using Trading.Backtesting.Certification;
 using Trading.Domain.Execution;
 using Trading.Execution.Live;
+using Trading.Execution.Paper;
+using Trading.Execution.Automation;
 using Trading.Execution.Zerodha;
 using Trading.Risk.Policy;
 
@@ -26,6 +28,11 @@ public static class LiveTradingCommands
         {
             var command = Parse(args);
             var intent = await ReadInputAsync(command.Input, cancellationToken);
+            var nowUtc = DateTime.UtcNow;
+            var authorization = command.Mode == LiveTradingMode.DirectLive
+                ? await ReadAndVerifyAuthorizationAsync(command.AutomationAuthorization, intent, nowUtc,
+                    cancellationToken)
+                : null;
             var liveSettings = configuration.GetSection("LiveTrading").Get<LiveTradingSettings>() ?? new();
             var zerodha = configuration.GetSection(ZerodhaFeedOptions.SectionName).Get<ZerodhaFeedOptions>() ?? new();
             if (command.Mode == LiveTradingMode.DirectLive && (!liveSettings.AllowDirectOrders || !zerodha.AllowLiveOrders))
@@ -38,6 +45,8 @@ public static class LiveTradingCommands
             var certificateEntity = await scope.ServiceProvider.GetRequiredService<IStrategyCertificateStore>()
                 .FindAsync(command.CertificateId, cancellationToken) ?? throw new ArgumentException("The strategy certificate was not found.");
             var certificate = VerifyCertificate(certificateEntity, DateTime.UtcNow);
+            if (authorization is not null && authorization.StrategyId != certificate.StrategyId)
+                throw new InvalidDataException("The M37 authorization strategy does not match the certified strategy.");
             var paper = await VerifiedPaperEvidenceAsync(scope.ServiceProvider, certificate, liveSettings, cancellationToken);
             var broker = scope.ServiceProvider.GetRequiredService<ILiveBrokerClient>();
             var account = await broker.GetAccountSnapshotAsync(cancellationToken);
@@ -50,14 +59,18 @@ public static class LiveTradingCommands
                 MaximumRiskPerTrade = decimal.Min(risk.MaximumRiskPerTrade, certificate.Constraints.AllowedRisk)
             };
             var constrainedIntent = intent with { MaximumLots = Minimum(intent.MaximumLots, certificate.Constraints.MaximumLots) };
+            var calendar = await ExchangeCalendarLoader.LoadAsync(configuration, cancellationToken);
             var proposal = LiveTradingEngine.Prepare(effectiveRisk, liveSettings, account, quote,
-                constrainedIntent, certificate.StrategyId, evaluatedAt,
-                TimeZoneInfo.FindSystemTimeZoneById("India Standard Time"));
+                constrainedIntent, certificate.StrategyId, evaluatedAt, calendar);
             var id = Guid.NewGuid(); var createdAt = DateTime.UtcNow;
             var status = command.Mode == LiveTradingMode.SemiLive ? "Proposed" : "Prepared";
-            var unsigned = new LiveOrderArtifact(1, id, createdAt, command.Mode, status,
+            var unsigned = new LiveOrderArtifact(command.Mode == LiveTradingMode.DirectLive ? 2 : 1,
+                id, createdAt, command.Mode, status,
                 certificate.CertificateId, certificate.CertificateSha256, paper.SessionEvidence,
-                paper.EvidenceSha256, account, quote, proposal, null, intent.OperatorApproved, string.Empty);
+                paper.EvidenceSha256, account, quote, proposal, null, intent.OperatorApproved, string.Empty,
+                authorization?.AutomationDecisionId, authorization?.AutomationSha256,
+                authorization?.StrategyQualificationId, authorization?.PaperQualificationId,
+                authorization?.ReconciliationId);
             var preparedHash = Sha256(JsonSerializer.Serialize(unsigned, Json));
             var prepared = unsigned with { ArtifactSha256 = preparedHash };
             var preparedJson = JsonSerializer.Serialize(prepared, Json);
@@ -72,6 +85,15 @@ public static class LiveTradingCommands
             BrokerOrderReceipt? receipt = null;
             if (command.Mode == LiveTradingMode.DirectLive)
             {
+                var consumed = await scope.ServiceProvider
+                    .GetRequiredService<IControlledAutomationAuthorizationStore>().TryConsumeAsync(new(
+                        authorization!.AutomationDecisionId, authorization.AutomationSha256,
+                        authorization.ActionId, authorization.ActionReference, authorization.StrategyId,
+                        authorization.EvaluatedAtUtc, authorization.ExpiresAtUtc,
+                        authorization.Decision.ToString(), authorization.MaximumAuthorizedActions, id),
+                        DateTime.UtcNow, cancellationToken);
+                if (!consumed)
+                    throw new InvalidOperationException("The M37 authorization is already consumed or could not be reserved atomically.");
                 brokerAttempted = true;
                 receipt = await broker.PlaceLimitBuyAsync(new(intent.RequestId, intent.Exchange,
                     intent.TradingSymbol, proposal.Quantity, intent.LimitPrice, "MIS",
@@ -98,7 +120,7 @@ public static class LiveTradingCommands
             await error.WriteLineAsync("Broker submission may have occurred. Do not retry this request ID; reconcile the prepared record with Zerodha.");
             return 4;
         }
-        catch (Exception exception) when (exception is ArgumentException or FormatException or IOException or
+        catch (Exception exception) when (exception is ArgumentException or FormatException or IOException or InvalidDataException or
                                            UnauthorizedAccessException or InvalidOperationException or JsonException or HttpRequestException)
         { Delete(createdFile); await error.WriteLineAsync(exception.Message); return 2; }
         catch (Exception)
@@ -115,16 +137,36 @@ public static class LiveTradingCommands
         var evidence = new List<PaperSessionEvidence>(); var filled = 0; decimal net = 0;
         foreach (var session in sessions)
         {
-            var artifact = JsonSerializer.Deserialize<PaperTradingSessionArtifact>(session.ArtifactJson, Json) ??
-                throw new InvalidDataException("A stored paper session is invalid.");
-            var hash = Sha256(JsonSerializer.Serialize(artifact with { ArtifactSha256 = string.Empty }, Json));
-            if (artifact.SessionId != session.Id || artifact.StrategyCertificateId != certificate.CertificateId ||
-                artifact.StrategyCertificateSha256 != certificate.CertificateSha256 ||
-                hash != session.ArtifactSha256 || artifact.ArtifactSha256 != session.ArtifactSha256)
+            using var document = JsonDocument.Parse(session.ArtifactJson);
+            var schema = document.RootElement.GetProperty("schemaVersion").GetInt32();
+            Guid sessionId; Guid certificateId; string certificateHash; string artifactHash;
+            PaperTradingResult result; string hash;
+            if (schema == 1)
+            {
+                var artifact = JsonSerializer.Deserialize<PaperTradingSessionArtifact>(session.ArtifactJson, Json) ??
+                    throw new InvalidDataException("A stored paper session is invalid.");
+                sessionId = artifact.SessionId; certificateId = artifact.StrategyCertificateId;
+                certificateHash = artifact.StrategyCertificateSha256; artifactHash = artifact.ArtifactSha256;
+                result = artifact.Result;
+                hash = Sha256(JsonSerializer.Serialize(artifact with { ArtifactSha256 = string.Empty }, Json));
+            }
+            else if (schema == 2)
+            {
+                var artifact = JsonSerializer.Deserialize<QualifiedPaperTradingSessionArtifact>(session.ArtifactJson, Json) ??
+                    throw new InvalidDataException("A stored qualified paper session is invalid.");
+                sessionId = artifact.SessionId; certificateId = artifact.StrategyCertificateId;
+                certificateHash = artifact.StrategyCertificateSha256; artifactHash = artifact.ArtifactSha256;
+                result = artifact.Result;
+                hash = Sha256(JsonSerializer.Serialize(artifact with { ArtifactSha256 = string.Empty }, Json));
+            }
+            else throw new InvalidDataException("A stored paper session has an unsupported schema.");
+            if (sessionId != session.Id || certificateId != certificate.CertificateId ||
+                certificateHash != certificate.CertificateSha256 ||
+                hash != session.ArtifactSha256 || artifactHash != session.ArtifactSha256)
                 throw new InvalidDataException("A paper-session identity or hash is invalid.");
-            evidence.Add(new(session.Id, session.ArtifactSha256, artifact.Result.FilledTrades,
-                artifact.Result.RealizedNetPnl));
-            filled += artifact.Result.FilledTrades; net += artifact.Result.RealizedNetPnl;
+            evidence.Add(new(session.Id, session.ArtifactSha256, result.FilledTrades,
+                result.RealizedNetPnl));
+            filled += result.FilledTrades; net += result.RealizedNetPnl;
         }
         if (sessions.Count < settings.MinimumPaperSessions || filled < settings.MinimumPaperFilledTrades ||
             (settings.RequirePositivePaperNetPnl && net <= 0))
@@ -132,6 +174,30 @@ public static class LiveTradingCommands
         var ordered = evidence.OrderBy(item => item.SessionId).ToArray();
         var evidenceHash = Sha256(string.Join('|', ordered.Select(item => $"{item.SessionId:D}:{item.ArtifactSha256}")));
         return new(ordered, evidenceHash);
+    }
+
+    private static async Task<ControlledAutomationArtifact> ReadAndVerifyAuthorizationAsync(string? path,
+        LiveEntryIntent intent, DateTime nowUtc, CancellationToken token)
+    {
+        if (path is null)
+            throw new ArgumentException("Direct mode requires --automation-authorization with a verified M37 artifact.");
+        await using var stream = File.OpenRead(path);
+        if (stream.Length > 1024 * 1024) throw new ArgumentException("The M37 authorization exceeds 1 MiB.");
+        var value = await JsonSerializer.DeserializeAsync<ControlledAutomationArtifact>(stream, Json, token) ??
+            throw new InvalidDataException("The M37 authorization is empty or invalid.");
+        if (!ControlledAutomationEngine.Verify(value) || value.SchemaVersion != 2)
+            throw new InvalidDataException("The M37 authorization SHA-256 or schema is invalid.");
+        if (value.Decision != ControlledAutomationDecision.DirectSubmissionEligible ||
+            value.BrokerSubmissionPerformed || value.MaximumAuthorizedActions != 1)
+            throw new InvalidDataException("The M37 artifact does not authorize one direct submission.");
+        if (nowUtc < value.EvaluatedAtUtc || nowUtc >= value.ExpiresAtUtc)
+            throw new InvalidDataException("The M37 authorization is not currently valid.");
+        if (value.ActionId != intent.RequestId)
+            throw new InvalidDataException("The M37 action ID does not match the live request ID.");
+        if (string.IsNullOrWhiteSpace(intent.AutomationActionReference) ||
+            value.ActionReference != intent.AutomationActionReference.Trim())
+            throw new InvalidDataException("The M37 action reference does not match the live intent.");
+        return value;
     }
 
     private static StrategyCertificate VerifyCertificate(Trading.Domain.Research.IssuedStrategyCertificate entity,
@@ -163,7 +229,8 @@ public static class LiveTradingCommands
     }
     private static Command Parse(string[] args)
     {
-        string? mode = null; string? certificate = null; string? input = null; string? output = null; string? confirm = null;
+        string? mode = null; string? certificate = null; string? input = null; string? output = null;
+        string? confirm = null; string? authorization = null;
         for (var index = 1; index < args.Length; index += 2)
         {
             if (index + 1 >= args.Length) throw new ArgumentException($"Missing value for {args[index]}.");
@@ -174,6 +241,7 @@ public static class LiveTradingCommands
                 case "--file" when input is null: input = args[index + 1]; break;
                 case "--output" when output is null: output = args[index + 1]; break;
                 case "--confirm" when confirm is null: confirm = args[index + 1]; break;
+                case "--automation-authorization" when authorization is null: authorization = args[index + 1]; break;
                 default: throw new ArgumentException($"Unknown or duplicate option: {args[index]}");
             }
         }
@@ -182,8 +250,10 @@ public static class LiveTradingCommands
         if (!Guid.TryParse(certificate, out var certificateId) || certificateId == Guid.Empty)
             throw new ArgumentException("A valid --certificate-id is required.");
         var inputPath = JsonPath(input, "--file", true); var outputPath = JsonPath(output, "--output", false);
+        var authorizationPath = string.IsNullOrWhiteSpace(authorization) ? null :
+            JsonPath(authorization, "--automation-authorization", true);
         if (File.Exists(outputPath)) throw new IOException("The output file already exists.");
-        return new(parsedMode, certificateId, inputPath, outputPath, confirm);
+        return new(parsedMode, certificateId, inputPath, outputPath, confirm, authorizationPath);
     }
     private static string JsonPath(string? value, string option, bool mustExist)
     {
@@ -202,7 +272,8 @@ public static class LiveTradingCommands
     private static void Delete(string? path) { if (path is not null && File.Exists(path)) File.Delete(path); }
     private static string Sha256(string value) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value))).ToLowerInvariant();
     private static JsonSerializerOptions Options() { var value = new JsonSerializerOptions(JsonSerializerDefaults.Web) { WriteIndented = true }; value.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.CamelCase)); return value; }
-    private sealed record Command(LiveTradingMode Mode, Guid CertificateId, string Input, string Output, string? Confirmation);
+    private sealed record Command(LiveTradingMode Mode, Guid CertificateId, string Input, string Output,
+        string? Confirmation, string? AutomationAuthorization);
     private sealed record PaperEvidence(IReadOnlyList<PaperSessionEvidence> SessionEvidence, string EvidenceSha256);
 }
 
@@ -211,4 +282,7 @@ public sealed record LiveOrderArtifact(int SchemaVersion, Guid LiveOrderId, Date
     LiveTradingMode Mode, string Status, Guid StrategyCertificateId, string StrategyCertificateSha256,
     IReadOnlyList<PaperSessionEvidence> PaperSessions, string PaperEvidenceSha256,
     BrokerAccountSnapshot AccountSnapshot, BrokerQuote Quote, LiveOrderProposal Proposal,
-    BrokerOrderReceipt? BrokerReceipt, bool OperatorApproved, string ArtifactSha256);
+    BrokerOrderReceipt? BrokerReceipt, bool OperatorApproved, string ArtifactSha256,
+    Guid? AutomationDecisionId = null, string? AutomationSha256 = null,
+    Guid? StrategyQualificationId = null, Guid? PaperQualificationId = null,
+    Guid? ReconciliationId = null);

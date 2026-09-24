@@ -1,0 +1,6 @@
+{
+  "schemaVersion": 1,
+  "strategyId": "vwap-ema-trend-breakout-v1",
+  "strategyImplementationVersion": "lean-vwap-ema-trend-breakout-v1",
+  "algorithmSourceRevision": "2d61de27d79d27a7f2f58015577e969cbaa01a142e3c39bac93d469e331f7086"
+}

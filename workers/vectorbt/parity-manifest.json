@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "strategyPortVersion": "native-signals-v1",
+  "strategyPortSha256": "0b36ceed5a90760ff7c7ddaba7219d02536c76ca037a14007e58ba33adee4dfb",
+  "strategies": {
+    "vwap-ema-trend-breakout-v1": true,
+    "opening-range-breakout-v1": true,
+    "ema-pullback-continuation-v1": true,
+    "vwap-reclaim-rejection-v1": true,
+    "adx-trend-continuation-v1": true
+  }
+}

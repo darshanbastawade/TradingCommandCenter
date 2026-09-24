@@ -35,13 +35,18 @@ public static class ResearchWorkerEvidenceCodec
     public static ResearchWorkerResult Seal(ResearchWorkerResult result, ResearchWorkerRequest request)
     {
         ArgumentNullException.ThrowIfNull(result); ArgumentNullException.ThrowIfNull(request);
-        if (result.SchemaVersion != 1 || string.IsNullOrWhiteSpace(result.WorkerId) ||
+        if (result.SchemaVersion is not (1 or 2) || string.IsNullOrWhiteSpace(result.WorkerId) ||
             string.IsNullOrWhiteSpace(result.WorkerVersion) || result.Role != BacktestEngineRole.ResearchExploration ||
             result.RequestId != request.RequestId || result.RequestSha256 != request.RequestSha256 ||
             result.Candidates.Count is < 1 || result.Candidates.Count > request.TopCandidates ||
             result.Candidates.Select(item => item.CandidateKey).Distinct(StringComparer.Ordinal).Count() !=
             result.Candidates.Count)
             throw new ArgumentException("Research-worker result identity is invalid.", nameof(result));
+        if (result.SchemaVersion == 2 && (result.ParityEvidence is null ||
+            result.ParityEvidence.StrategyId != request.StrategyId || !result.ParityEvidence.Passed ||
+            string.IsNullOrWhiteSpace(result.ParityEvidence.StrategyPortVersion) ||
+            !Hash(result.ParityEvidence.StrategyPortSha256)))
+            throw new ArgumentException("Research-worker strategy parity evidence is invalid.", nameof(result));
         var expected = request.Candidates.Select(item => item.CandidateKey).ToHashSet(StringComparer.Ordinal);
         foreach (var candidate in result.Candidates)
         {

@@ -27,7 +27,12 @@ public static class DependencyInjection
         services.AddScoped<IBacktestAnalysisStore, BacktestAnalysisStore>();
         services.AddScoped<IMarketFeedCaptureStore, MarketFeedCaptureStore>();
         services.AddScoped<IPaperTradingSessionStore, PaperTradingSessionStore>();
+        services.AddScoped<IPaperQualificationSessionQuery, PaperTradingSessionStore>();
         services.AddScoped<ILiveOrderStore, LiveOrderStore>();
+        services.AddScoped<IControlledAutomationAuthorizationStore, ControlledAutomationAuthorizationStore>();
+        services.AddScoped<IControlledAutomationStateProvider, ControlledAutomationStateProvider>();
+        services.AddScoped<IInternalTradingLedgerReader, InternalTradingLedgerReader>();
+        services.AddScoped<IReconciledExecutionStateStore, ReconciledExecutionStateStore>();
         return services;
     }
 }

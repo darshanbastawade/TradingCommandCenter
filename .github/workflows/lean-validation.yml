@@ -1,0 +1,72 @@
+name: LEAN independent validation
+
+on:
+  workflow_dispatch:
+    inputs:
+      tcc_run_id:
+        description: Pre-staged M29 request-package directory name
+        required: true
+        type: string
+      lean_image:
+        description: Immutable LEAN image reference (repository@sha256:...)
+        required: true
+        type: string
+      lean_data_directory:
+        description: Absolute validation-data directory on the self-hosted runner
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: official-lean-validation
+    runs-on: [self-hosted, linux, x64, lean-validation]
+    timeout-minutes: 120
+    env:
+      LiveTrading__KillSwitchEngaged: "true"
+      LiveTrading__AllowDirectOrders: "false"
+      Zerodha__AllowLiveFeed: "false"
+      Zerodha__AllowLiveOrders: "false"
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Validate immutable image and staged package
+        shell: bash
+        env:
+          LEAN_IMAGE: ${{ inputs.lean_image }}
+          LEAN_DATA_DIRECTORY: ${{ inputs.lean_data_directory }}
+          TCC_RUN_ID: ${{ inputs.tcc_run_id }}
+        run: |
+          [[ "$LEAN_IMAGE" =~ ^[^[:space:]@]+@sha256:[0-9a-fA-F]{64}$ ]]
+          [[ "$TCC_RUN_ID" =~ ^[A-Za-z0-9._-]+$ ]]
+          test -f "$LEAN_DATA_DIRECTORY/tcc-lean/$TCC_RUN_ID/request.json"
+          test -f "$LEAN_DATA_DIRECTORY/tcc-lean/$TCC_RUN_ID/candles.csv"
+          test ! -e "$LEAN_DATA_DIRECTORY/tcc-lean/$TCC_RUN_ID/evidence.json"
+
+      - name: Run official LEAN container through LEAN CLI
+        shell: bash
+        env:
+          LEAN_IMAGE: ${{ inputs.lean_image }}
+          LEAN_DATA_DIRECTORY: ${{ inputs.lean_data_directory }}
+          TCC_RUN_ID: ${{ inputs.tcc_run_id }}
+        run: |
+          mkdir -p artifacts/lean
+          lean backtest external/lean/TradingCommandCenterLean \
+            --output "$GITHUB_WORKSPACE/artifacts/lean" \
+            --image "$LEAN_IMAGE" --no-update \
+            --parameter tccRunId "$TCC_RUN_ID"
+          test -s "$LEAN_DATA_DIRECTORY/tcc-lean/$TCC_RUN_ID/evidence.json"
+          cp "$LEAN_DATA_DIRECTORY/tcc-lean/$TCC_RUN_ID/evidence.json" artifacts/lean/evidence.json
+
+      - name: Publish official LEAN evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lean-validation-${{ github.run_id }}
+          path: artifacts/lean/
+          if-no-files-found: warn
+          retention-days: 30

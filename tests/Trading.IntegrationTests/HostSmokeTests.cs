@@ -25,7 +25,7 @@ public sealed class HostSmokeTests
 
     [Theory]
     [InlineData("/health", "Healthy")]
-    [InlineData("/api/status", "\"milestone\":\"M37\"")]
+    [InlineData("/api/status", "\"milestone\":\"M38.10\"")]
     [InlineData("/api/backtest-specification", "\"schemaVersion\":1")]
     [InlineData("/api/backtest-engines", "native-csharp")]
     [InlineData("/api/backtest-engines", "independentValidation")]

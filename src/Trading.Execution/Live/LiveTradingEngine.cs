@@ -1,4 +1,5 @@
 using Trading.Application.Execution;
+using Trading.Domain.MarketData;
 using Trading.Risk.Policy;
 
 namespace Trading.Execution.Live;
@@ -19,7 +20,10 @@ public sealed record LiveTradingSettings
 public sealed record LiveEntryIntent(Guid RequestId, Guid InstrumentId, uint InstrumentToken,
     string Exchange, string TradingSymbol, DateTime ProposedEntryUtc, DateTime PlannedExitUtc,
     decimal LimitPrice, decimal StopPrice, decimal TargetPrice, int LotSize, int? MaximumLots,
-    bool OperatorApproved);
+    bool OperatorApproved)
+{
+    public string? AutomationActionReference { get; init; }
+}
 
 public sealed record LiveOrderProposal(Guid RequestId, string StrategyId, uint InstrumentToken,
     string Exchange, string TradingSymbol, DateTime EvaluatedAtUtc, decimal QuoteLastPrice,
@@ -31,11 +35,11 @@ public static class LiveTradingEngine
 {
     public static LiveOrderProposal Prepare(DeterministicRiskPolicySettings riskSettings,
         LiveTradingSettings liveSettings, BrokerAccountSnapshot account, BrokerQuote quote,
-        LiveEntryIntent intent, string strategyId, DateTime evaluatedAtUtc, TimeZoneInfo exchangeTimeZone)
+        LiveEntryIntent intent, string strategyId, DateTime evaluatedAtUtc, ExchangeSessionCalendar calendar)
     {
         ArgumentNullException.ThrowIfNull(riskSettings); ArgumentNullException.ThrowIfNull(liveSettings);
         ArgumentNullException.ThrowIfNull(account); ArgumentNullException.ThrowIfNull(quote);
-        ArgumentNullException.ThrowIfNull(intent); ArgumentNullException.ThrowIfNull(exchangeTimeZone);
+        ArgumentNullException.ThrowIfNull(intent); ArgumentNullException.ThrowIfNull(calendar);
         if (evaluatedAtUtc.Kind != DateTimeKind.Utc || intent.RequestId == Guid.Empty ||
             intent.InstrumentId == Guid.Empty || intent.InstrumentToken == 0 || string.IsNullOrWhiteSpace(strategyId) ||
             string.IsNullOrWhiteSpace(intent.Exchange) || string.IsNullOrWhiteSpace(intent.TradingSymbol) ||
@@ -74,7 +78,7 @@ public static class LiveTradingEngine
         var risk = DeterministicRiskPolicy.EvaluateAndSize(riskSettings, state,
             new(intent.RequestId, strategyId, intent.InstrumentId, intent.ProposedEntryUtc,
                 intent.PlannedExitUtc, intent.LimitPrice, intent.StopPrice, intent.LotSize,
-                intent.MaximumLots, TradingCapitalPool.StrategyTesting), exchangeTimeZone);
+                intent.MaximumLots, TradingCapitalPool.StrategyTesting), calendar);
         if (!risk.Approved)
             throw new InvalidOperationException($"M18 rejected the live entry: {string.Join(',', risk.PolicyDecision.RejectionCodes)}.");
         return new(intent.RequestId, strategyId, intent.InstrumentToken, intent.Exchange,

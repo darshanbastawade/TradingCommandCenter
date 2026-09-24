@@ -22,8 +22,17 @@ public static class BacktestRunCodec
             run.FinalCapital != run.InitialCapital + run.NetPnl || run.WinningTrades < 0 || run.LosingTrades < 0 ||
             run.WinningTrades != run.Trades.Count(item => item.NetPnl > 0) ||
             run.LosingTrades != run.Trades.Count(item => item.NetPnl < 0) ||
-            run.NetPnl != run.Trades.Sum(item => item.NetPnl))
-            throw new ArgumentException("Backtest run identity or summary is invalid.", nameof(run));
+            run.NetPnl != run.Trades.Sum(item => item.NetPnl) ||
+            run.ExternalValidation is not null && !VerifyExternalValidation(run.ExternalValidation))
+            throw new ArgumentException($"Backtest run identity or summary is invalid " +
+                $"(schema={run.SchemaVersion}, specificationHash={Hash(run.SpecificationSha256)}, " +
+                $"datasetHash={Hash(run.DeclaredDatasetSha256)}, consumedHash={Hash(run.ConsumedMarketDataSha256)}, " +
+                $"capitalEquation={run.FinalCapital == run.InitialCapital + run.NetPnl}, " +
+                $"wins={run.WinningTrades}/{run.Trades?.Count(item => item.NetPnl > 0)}, " +
+                $"losses={run.LosingTrades}/{run.Trades?.Count(item => item.NetPnl < 0)}, " +
+                $"pnl={run.NetPnl}/{run.Trades?.Sum(item => item.NetPnl)}, " +
+                $"external={run.ExternalValidation is null || VerifyExternalValidation(run.ExternalValidation)}).",
+                nameof(run));
         ValidateTrades(run);
         var unsigned = run with
         {
@@ -74,6 +83,20 @@ public static class BacktestRunCodec
     }
 
     private static bool Hash(string? value) => value?.Length == 64 && value.All(Uri.IsHexDigit);
+
+    public static bool VerifyExternalValidation(BacktestRunExternalValidationEvidence? value) => value is not null &&
+        value.Provider == "QuantConnect LEAN" && ImageDigest(value.LeanImage) &&
+        Hash(value.OfficialResultSha256) && Hash(value.AlgorithmSourceRevision) &&
+        !string.IsNullOrWhiteSpace(value.StrategyImplementationVersion) &&
+        Guid.TryParseExact(value.TccRunId, "N", out _) && Hash(value.RequestPackageSha256) &&
+        Hash(value.CandleFileSha256);
+
+    private static bool ImageDigest(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return false;
+        var marker = value.IndexOf("@sha256:", StringComparison.OrdinalIgnoreCase);
+        return marker > 0 && value[(marker + 8)..].Length == 64 && value[(marker + 8)..].All(Uri.IsHexDigit);
+    }
 
     private static JsonSerializerOptions CreateOptions(bool indented)
     {

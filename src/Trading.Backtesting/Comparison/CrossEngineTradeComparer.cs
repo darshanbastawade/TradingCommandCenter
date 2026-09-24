@@ -112,13 +112,14 @@ public static class CrossEngineTradeComparer
               drawdownDeviation <= policy.MaximumDrawdownDeviationPercentagePoints
                 ? CrossEngineVerdict.Pass : CrossEngineVerdict.Divergent;
 
-        return CrossEngineComparisonCodec.Seal(new(1, native.SpecificationSha256,
+        return CrossEngineComparisonCodec.Seal(new CrossEngineComparison(1, native.SpecificationSha256,
             native.DeclaredDatasetSha256, native.ConsumedMarketDataSha256,
             native.EngineId, native.EngineVersion, native.ResultSha256,
             lean.EngineId, lean.EngineVersion, lean.ResultSha256, policy, verdict,
             native.Trades.Count, lean.Trades.Count, matched, matchedRate, entryRate, exitRate,
             maxEntryPriceBps, maxExitPriceBps, native.NetPnl, lean.NetPnl, pnlDeviation,
-            nativeDrawdown, leanDrawdown, drawdownDeviation, comparisons, string.Empty));
+            nativeDrawdown, leanDrawdown, drawdownDeviation, comparisons, string.Empty)
+            { IndependentValidation = lean.ExternalValidation });
     }
 
     private static void Validate(BacktestRun native, BacktestRun lean, CrossEngineComparisonPolicy policy)

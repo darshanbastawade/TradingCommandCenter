@@ -42,6 +42,10 @@ public sealed class RiskPolicyCommandTests
             Assert.Equal(string.Empty, error.ToString());
             using var result = JsonDocument.Parse(output.ToString());
             Assert.True(result.RootElement.GetProperty("approved").GetBoolean());
+            Assert.Equal("nse-2025-v2", result.RootElement.GetProperty("policyDecision")
+                .GetProperty("calendarId").GetString());
+            Assert.Equal(64, result.RootElement.GetProperty("policyDecision")
+                .GetProperty("calendarSha256").GetString()!.Length);
             Assert.Equal(64, result.RootElement.GetProperty("decisionSha256").GetString()!.Length);
         }
         finally { File.Delete(path); }

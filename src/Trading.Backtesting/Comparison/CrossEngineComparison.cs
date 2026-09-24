@@ -1,4 +1,5 @@
 using Trading.Application.Backtesting;
+using System.Text.Json.Serialization;
 
 namespace Trading.Backtesting.Comparison;
 
@@ -52,4 +53,8 @@ public sealed record CrossEngineComparison(
     decimal LeanClosedTradeMaxDrawdownPercent,
     decimal DrawdownDeviationPercentagePoints,
     IReadOnlyList<CrossEngineTradeComparison> Trades,
-    string ComparisonSha256);
+    string ComparisonSha256)
+{
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public BacktestRunExternalValidationEvidence? IndependentValidation { get; init; }
+}

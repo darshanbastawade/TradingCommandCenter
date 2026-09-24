@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace Trading.Application.Backtesting;
 
 public enum BacktestEngineRole
@@ -49,7 +51,21 @@ public sealed record BacktestRun(
     int LosingTrades,
     IReadOnlyList<BacktestRunTrade> Trades,
     IReadOnlyList<BacktestRunIgnoredCandidate> IgnoredCandidates,
-    string ResultSha256);
+    string ResultSha256)
+{
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public BacktestRunExternalValidationEvidence? ExternalValidation { get; init; }
+}
+
+public sealed record BacktestRunExternalValidationEvidence(
+    string Provider,
+    string LeanImage,
+    string OfficialResultSha256,
+    string AlgorithmSourceRevision,
+    string StrategyImplementationVersion,
+    string TccRunId,
+    string RequestPackageSha256,
+    string CandleFileSha256);
 
 public interface IBacktestEngine
 {

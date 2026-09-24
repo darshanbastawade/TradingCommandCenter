@@ -19,8 +19,7 @@ public sealed class LeanBacktestEngineTests
         try
         {
             var runner = new FixtureRunner();
-            var engine = new LeanBacktestEngine(new Store(), runner,
-                new LeanOptions { DataDirectory = directory, Image = "quantconnect/lean:test" });
+            var engine = new LeanBacktestEngine(new Store(), runner, Options(directory));
             var specification = Specification();
 
             var run = await engine.RunAsync(specification);
@@ -29,6 +28,9 @@ public sealed class LeanBacktestEngineTests
             Assert.Equal("lean", run.EngineId);
             Assert.Equal(specification.SpecificationSha256, run.SpecificationSha256);
             Assert.True(BacktestRunCodec.Verify(run));
+            Assert.True(BacktestRunCodec.VerifyExternalValidation(run.ExternalValidation));
+            Assert.Equal("fixture-v1", run.ExternalValidation!.StrategyImplementationVersion);
+            Assert.Equal(Options(directory).Image, run.ExternalValidation.LeanImage);
             Assert.Equal(2, runner.ObservedCandles);
             Assert.Empty(Directory.GetDirectories(Path.Combine(directory, "tcc-lean")));
         }
@@ -42,8 +44,7 @@ public sealed class LeanBacktestEngineTests
         Directory.CreateDirectory(directory);
         try
         {
-            var engine = new LeanBacktestEngine(new Store(), new FixtureRunner(tamperHash: true),
-                new LeanOptions { DataDirectory = directory, Image = "quantconnect/lean:test" });
+            var engine = new LeanBacktestEngine(new Store(), new FixtureRunner(tamperHash: true), Options(directory));
             await Assert.ThrowsAsync<InvalidDataException>(() => engine.RunAsync(Specification()));
             var option = Specification().Specification with
             {
@@ -67,8 +68,7 @@ public sealed class LeanBacktestEngineTests
         Directory.CreateDirectory(directory);
         try
         {
-            var engine = new LeanBacktestEngine(new Store(), new FixtureRunner(tamperTrade: true),
-                new LeanOptions { DataDirectory = directory, Image = "quantconnect/lean:test" });
+            var engine = new LeanBacktestEngine(new Store(), new FixtureRunner(tamperTrade: true), Options(directory));
             await Assert.ThrowsAsync<InvalidDataException>(() => engine.RunAsync(Specification()));
         }
         finally { Directory.Delete(directory, true); }
@@ -86,14 +86,31 @@ public sealed class LeanBacktestEngineTests
                 ProjectDirectory = directory, Image = "quantconnect/lean:latest"
             });
             await Assert.ThrowsAsync<InvalidOperationException>(() => runner.RunAsync(
-                new LeanMappedInput("run", "request", "candles", "evidence", directory, "hash", 1),
+                new LeanMappedInput("run", "request", "candles", "evidence", directory, "hash", 1,
+                    "request-hash", "candle-hash", "vwap-ema-trend-breakout-v1", "source-hash",
+                    "fixture-v1", "quantconnect/lean:latest"),
                 CancellationToken.None));
         }
         finally { Directory.Delete(directory, true); }
     }
 
+    [Fact]
+    public async Task Adapter_rejects_stale_algorithm_source_manifest()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"tcc-lean-test-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directory);
+        try
+        {
+            var options = Options(directory);
+            await File.AppendAllTextAsync(Path.Combine(options.ProjectDirectory, "main.py"), "# changed\n");
+            var engine = new LeanBacktestEngine(new Store(), new FixtureRunner(), options);
+            await Assert.ThrowsAsync<InvalidDataException>(() => engine.RunAsync(Specification()));
+        }
+        finally { Directory.Delete(directory, true); }
+    }
+
     private static SealedBacktestSpecification Specification() => BacktestSpecificationCodec.Seal(new(1,
-        "opening-range-breakout-v1",
+        "vwap-ema-trend-breakout-v1",
         new(InstrumentId, "NSE", "NIFTY 50", BacktestAssetClass.EquityIndex, "INR", 1, .05m),
         new(From, From.AddMinutes(10), 5, "India Standard Time", "nse-v1", "fixture", "v1",
             new string('a', 64), BacktestMarketDataMode.OhlcvBars),
@@ -103,8 +120,8 @@ public sealed class LeanBacktestEngineTests
             BacktestEndOfDataPolicy.CloseLastObserved), new Dictionary<string, decimal>
         {
             ["fastEmaPeriod"] = 20, ["slowEmaPeriod"] = 50, ["atrPeriod"] = 14,
-            ["adxPeriod"] = 14, ["volumeAveragePeriod"] = 20, ["openingRangeBars"] = 3,
-            ["volumeMultiplier"] = 1.2m, ["atrStopMultiple"] = 1,
+            ["adxPeriod"] = 14, ["volumeAveragePeriod"] = 20, ["breakoutLookbackBars"] = 3,
+            ["minimumAdx"] = 20, ["volumeMultiplier"] = 1.2m, ["atrStopMultiple"] = 1,
             ["rewardRiskMultiple"] = 3, ["entryWindowStartMinuteOfDay"] = 570,
             ["entryWindowEndMinuteOfDay"] = 690
         }));
@@ -119,19 +136,20 @@ public sealed class LeanBacktestEngineTests
             ObservedCandles = request.RootElement.GetProperty("candleCount").GetInt32();
             var official = Path.Combine(input.OutputDirectory, "12345.json");
             var officialJson = tamperTrade
-                ? "{\"closedTrades\":[{\"entryTime\":\"2026-09-01T03:50:00Z\",\"exitTime\":\"2026-09-01T03:55:00Z\",\"entryPrice\":101,\"exitPrice\":103,\"quantity\":1,\"profitLoss\":2,\"totalFees\":0}]}"
-                : "{\"closedTrades\":[]}";
+                ? "{\"TotalPerformance\":{\"ClosedTrades\":[{\"EntryTime\":\"2026-09-01T03:50:00Z\",\"ExitTime\":\"2026-09-01T03:55:00Z\",\"EntryPrice\":101,\"ExitPrice\":103,\"Quantity\":1,\"ProfitLoss\":2,\"TotalFees\":0}]}}"
+                : "{\"TotalPerformance\":{\"ClosedTrades\":[]}}";
             await File.WriteAllTextAsync(official, officialJson, cancellationToken);
             var specification = request.RootElement.GetProperty("specification");
             var declared = specification.GetProperty("data").GetProperty("datasetSha256").GetString()!;
             var trades = tamperTrade ? new[]
             {
-                new BacktestRunTrade("opening-range-breakout-v1", InstrumentId,
+                new BacktestRunTrade("vwap-ema-trend-breakout-v1", InstrumentId,
                     BacktestRunTradeDirection.Long, From, From.AddMinutes(5),
                     From.AddMinutes(10), 1, 101, 99, 107, 102,
                     "session-exit", 1, 0, 1, 100_001)
             } : [];
-            var run = BacktestRunCodec.Seal(new(1, LeanBacktestEngine.Id, "1:quantconnect/lean:test",
+            var image = request.RootElement.GetProperty("leanImage").GetString()!;
+            var run = BacktestRunCodec.Seal(new(1, LeanBacktestEngine.Id, $"2:{image}",
                 BacktestEngineRole.IndependentValidation,
                 tamperHash ? new string('b', 64) :
                     request.RootElement.GetProperty("specificationSha256").GetString()!,
@@ -142,6 +160,22 @@ public sealed class LeanBacktestEngineTests
                 cancellationToken);
             return new(official, input.EvidencePath);
         }
+    }
+
+    private static LeanOptions Options(string dataDirectory)
+    {
+        var project = Path.Combine(dataDirectory, "lean-project"); Directory.CreateDirectory(project);
+        const string source = "# fixture independent LEAN source\n";
+        File.WriteAllText(Path.Combine(project, "main.py"), source);
+        var revision = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
+            System.Text.Encoding.UTF8.GetBytes(source))).ToLowerInvariant();
+        File.WriteAllText(Path.Combine(project, "tcc-strategy-manifest.json"), JsonSerializer.Serialize(new
+        {
+            schemaVersion = 1, strategyId = "vwap-ema-trend-breakout-v1",
+            strategyImplementationVersion = "fixture-v1", algorithmSourceRevision = revision
+        }, new JsonSerializerOptions(JsonSerializerDefaults.Web)));
+        return new() { DataDirectory = dataDirectory, ProjectDirectory = project,
+            Image = $"quantconnect/lean@sha256:{new string('a', 64)}" };
     }
 
     private sealed class Store : IMarketDataStore

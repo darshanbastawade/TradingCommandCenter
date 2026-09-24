@@ -11,11 +11,12 @@ public static class LeanInputMapper
 {
     private sealed record Request(int SchemaVersion, string RunId, string SpecificationSha256,
         string ConsumedMarketDataSha256, string CandleFileSha256, int CandleCount,
-        string CandleFileName, BacktestSpecification Specification);
+        string CandleFileName, string LeanImage, string AlgorithmSourceRevision,
+        string StrategyImplementationVersion, BacktestSpecification Specification);
 
     public static async Task<LeanMappedInput> WriteAsync(string dataDirectory,
         SealedBacktestSpecification sealedSpecification, IReadOnlyList<Candle> candles,
-        CancellationToken cancellationToken)
+        LeanAlgorithmProjectEvidence project, string leanImage, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(sealedSpecification);
         ArgumentNullException.ThrowIfNull(candles);
@@ -44,12 +45,16 @@ public static class LeanInputMapper
         var csv = Csv(candles);
         await File.WriteAllTextAsync(candlePath, csv, new UTF8Encoding(false), cancellationToken);
         var consumed = Fingerprint(specification, candles);
-        var request = new Request(1, runId, sealedSpecification.SpecificationSha256,
-            consumed, Sha256(csv), candles.Count, "candles.csv", specification);
-        await File.WriteAllTextAsync(requestPath,
-            JsonSerializer.Serialize(request, new JsonSerializerOptions(JsonSerializerDefaults.Web)),
+        var candleHash = Sha256(csv);
+        var request = new Request(2, runId, sealedSpecification.SpecificationSha256,
+            consumed, candleHash, candles.Count, "candles.csv", leanImage,
+            project.AlgorithmSourceRevision, project.StrategyImplementationVersion, specification);
+        var requestJson = JsonSerializer.Serialize(request, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+        await File.WriteAllTextAsync(requestPath, requestJson,
             new UTF8Encoding(false), cancellationToken);
-        return new(runId, requestPath, candlePath, evidencePath, outputDirectory, consumed, candles.Count);
+        return new(runId, requestPath, candlePath, evidencePath, outputDirectory, consumed, candles.Count,
+            Sha256(requestJson), candleHash, specification.StrategyId, project.AlgorithmSourceRevision,
+            project.StrategyImplementationVersion, leanImage);
     }
 
     private static string Csv(IReadOnlyList<Candle> candles)
