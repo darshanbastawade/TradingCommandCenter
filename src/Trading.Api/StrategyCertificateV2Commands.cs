@@ -68,8 +68,9 @@ public static class StrategyCertificateV2Commands
                 cancellationToken);
             await output.WriteLineAsync(JsonSerializer.Serialize(new
             {
-                status = "strategy-certificate-v2-issued", certificate.CertificateId,
-                certificate.StrategyId, certificate.Status, certificate.EligibleForQualificationPipeline,
+                eventStatus = "strategy-certificate-v2-issued", certificate.CertificateId,
+                certificate.StrategyId, certificateStatus = certificate.Status,
+                certificate.EligibleForQualificationPipeline,
                 certificate.EvidenceFailures, certificate.CertificateSha256, output = command.Output
             }, Json));
             return certificate.Status == StrategyCertificateV2Status.EvidenceQualified ? 0 : 4;

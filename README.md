@@ -1,6 +1,6 @@
-# Trading Command Center — M38.10
+# Trading Command Center — M38.11
 
-SQL Server is configured for `DESKTOP-EF1NCS7 / Market`. See [M38.10 CI and verification closure](docs/M38.10.md), [M38.9 real LEAN validation closure](docs/M38.9.md), and the linked progression milestones. Local-first modular monolith. C# owns authoritative calculations and hard risk gates; vectorbt screens parity-verified research candidates; the separately maintained LEAN project independently validates the first strategy when its local runtime is configured; SQL and immutable artifacts preserve evidence; Azure OpenAI explains verified results; the operator retains final authority.
+SQL Server is configured for `DESKTOP-EF1NCS7 / Market`. See [M38 production integrity closure](docs/M38.md), [M38.10 CI and verification closure](docs/M38.10.md), and the linked progression milestones. Local-first modular monolith. C# owns authoritative calculations and hard risk gates; vectorbt screens parity-verified research candidates; the separately maintained LEAN project independently validates the first strategy when its local runtime is configured; SQL and immutable artifacts preserve evidence; Azure OpenAI explains verified results; the operator retains final authority.
 
 ## Start in VS Code
 
@@ -77,6 +77,7 @@ Versions are centralized in `Directory.Packages.props`; each project commits `pa
 - M38.8 requires exact native C#/Python signal parity before vectorbt may screen a strategy, including native Wilder indicators, session rules and every strategy gate.
 - M38.9 adds the separately maintained LEAN algorithm and prevents M32 qualification when M30 lacks official-runtime provenance.
 - M38.10 adds one branch-protection-ready push/PR verification job for locked .NET builds, the complete test suite, the pinned vectorbt runtime and native/Python parity, plus an optional manual official-LEAN workflow.
+- M38.11 proves the full research-to-fake-broker safety chain, rejects twenty single-gate failures before submission, and asserts that the sole production broker call cannot bypass M37 authorization, one-time consumption, or M18 risk approval.
 - Tests: Microsoft.NET.Test.Sdk, xUnit, Visual Studio test adapter, Coverlet collector; integration tests also use ASP.NET Core MVC Testing, and unit tests use the dependency-injection container to verify options registration.
 - ASP.NET Core and Blazor use the shared framework. No extra UI framework is needed.
 

@@ -135,7 +135,7 @@ app.MapHealthChecks("/health", new HealthCheckOptions { Predicate = _ => false }
 app.MapHealthChecks("/health/ready", new HealthCheckOptions { Predicate = check => check.Tags.Contains("ready") });
 app.MapGet("/api/status", () => new
 {
-    milestone = "M38.10",
+    milestone = "M38.11",
     strategies = new[]
     {
         "vwap-ema-trend-breakout-v1",

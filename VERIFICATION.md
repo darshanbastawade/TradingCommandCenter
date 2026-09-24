@@ -1,4 +1,14 @@
-# Verification — September 23, 2026
+# Verification — September 24, 2026
+
+## M38.11 end-to-end production safety acceptance
+
+- Added a deterministic integration fixture spanning M16 certified dataset identity, M27 retained candidate, M28 native verification, genuine-provenance M30 comparison, M31 robustness, M32 certificate, bound M33 fixture analysis, M34 human review, ten post-M34 schema-v2 M22 sessions, M35 durable qualification, authoritative M36 provenance, the production M37 command, fresh M18 approval, atomic M37 consumption, and M23 fake-broker submission.
+- The positive path reaches `PlaceLimitBuyAsync` exactly once and consumes exactly one M37 authorization. AI, LEAN and broker behavior are sealed fixtures or fakes; no external process or service is invoked.
+- Added twenty single-fault cases for dataset/specification identity, M30 verdict, robustness, M32 status/expiry, M34, M35, M36, M37 decision/expiry/replay/unresolved state, M18, kill switch, direct-order opt-in, operator confirmation, broker-data freshness and unexpected position. Every case asserts zero fake-broker submission calls.
+- Added a source architecture assertion requiring exactly one production `.PlaceLimitBuyAsync(` call site and requiring M37 verification, `LiveTradingEngine.Prepare` (M18), and atomic `TryConsumeAsync` to precede it. The asserted call site is `LiveTradingCommands.RunAsync`.
+- The suite exposed and fixed an M32 CLI response defect where `status` and `certificate.Status` collided after camel-case conversion. The response now uses distinct `eventStatus` and `certificateStatus` fields; certificate evidence and hashes are unchanged.
+- Locked restore passed. The full Release solution built with 0 warnings and 0 errors. All 351 tests passed: BacktestTests 111, IntegrationTests 133, StrategyValidationTests 48, UnitTests 59. No tests were skipped. The dedicated M38.11 acceptance filter passed 22/22 cases.
+- No SQL Server, Zerodha, Azure OpenAI, paid AI, Docker, LEAN CLI, broker, or other external network call occurred. No database migration was added or applied. M38 closure proves the implemented enforcement chain; it does not imply strategy profitability.
 
 ## M38.10 CI and verification closure
 
@@ -25,6 +35,7 @@ This matrix makes the verification boundary explicit for every M38 milestone. Te
 | M38.8 | Pass; 325 tests | Five C#/Python parity fixtures and Python compilation | Real vectorbt portfolio runtime, LEAN, Zerodha, Azure OpenAI, SQL Server | None |
 | M38.9 | Pass; 329 tests | Two-session native/independent-algorithm fixture and Python compilation | Official LEAN container/CLI, production M30 evidence, Zerodha, Azure OpenAI, SQL Server | None |
 | M38.10 | Pass; 329 tests | Five parity cases, Python compilation, real vectorbt 1.1.0 smoke | GitHub-hosted workflow, official LEAN container/CLI, Zerodha, Azure OpenAI, SQL Server | None |
+| M38.11 | Pass; 351 tests | 22-case research-to-fake-broker acceptance suite and sole-call-site architecture assertion | Official LEAN container/CLI, Zerodha, Azure OpenAI, SQL Server | None |
 
 ## M38.9 real LEAN validation closure
 
