@@ -1,0 +1,18 @@
+# NSE Capital Market calendar - 2025
+# Full-day holidays: NSE/CMTR/65587 dated 13-Dec-2024
+# Special sessions are explicit and override weekends and holidays.
+holiday,2025-02-26
+holiday,2025-03-14
+holiday,2025-03-31
+holiday,2025-04-10
+holiday,2025-04-14
+holiday,2025-04-18
+holiday,2025-05-01
+holiday,2025-08-15
+holiday,2025-08-27
+holiday,2025-10-02
+holiday,2025-10-22
+holiday,2025-11-05
+holiday,2025-12-25
+special,2025-02-01,09:15,15:30
+special,2025-10-21,13:45,14:45
