@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 2,
+  "provider": "Upstox",
+  "providerApi": "historical-candle-v3",
+  "instrumentKey": "NSE_INDEX|Nifty 50",
+  "intervalMinutes": 1,
+  "requestedFrom": "2025-04-23",
+  "requestedTo": "2025-04-23",
+  "actualFrom": "2025-04-23T09:15:00+05:30",
+  "actualTo": "2025-04-23T15:29:00+05:30",
+  "downloadedAtUtc": "2026-10-03T05:38:12.5604943+00:00",
+  "totalRows": 374,
+  "zeroVolumeRows": 374,
+  "missingVolumeRows": 0,
+  "sessionCompleteness": "unverified",
+  "coverageWarnings": [
+    "Exchange session completeness is unverified; this is raw provider data and is not research-certified.",
+    "Zero-volume index candles may be unsuitable for VWAP and other volume-dependent strategies.",
+    "Missing-volume candles are rejected rather than replaced; missingVolumeRows counts accepted records and is zero."
+  ],
+  "windows": [
+    {
+      "from": "2025-04-23",
+      "to": "2025-04-23",
+      "status": "completed",
+      "rowCount": 374,
+      "firstTimestamp": "2025-04-23T09:15:00+05:30",
+      "lastTimestamp": "2025-04-23T15:29:00+05:30",
+      "files": [
+        {
+          "relativePath": "2025\\04\\nse-index-nifty-50-1m-2025-04-01.csv",
+          "rowCount": 374,
+          "firstTimestamp": "2025-04-23T09:15:00+05:30",
+          "lastTimestamp": "2025-04-23T15:29:00+05:30",
+          "sha256": "22af9086642f8552a799103c23f4dd9e9e48809b307458186bd8d7c2b8995e3d",
+          "zeroVolumeRows": 374
+        }
+      ],
+      "error": null
+    }
+  ]
+}

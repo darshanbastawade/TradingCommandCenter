@@ -15,6 +15,7 @@ using Trading.ExternalValidation.Lean;
 using Trading.Execution.Automation;
 
 var command = MarketDataCommands.IsCommand(args) || OosTestCommands.IsCommand(args) ||
+    ResearchBaselineCommands.IsCommand(args) ||
     WalkForwardCommands.IsCommand(args) || ResearchIntegrityCommands.IsCommand(args) ||
     DatabaseCommands.IsCommand(args) || OptionDataCommands.IsCommand(args) || OptionsBacktestCommands.IsCommand(args) ||
     RiskPolicyCommands.IsCommand(args) || StrategyCertificateCommands.IsCommand(args) ||
@@ -72,7 +73,9 @@ if (command)
     Console.CancelKeyPress += cancel;
     try
     {
-        Environment.ExitCode = ControlledAutomationCommands.IsCommand(args)
+        Environment.ExitCode = ResearchBaselineCommands.IsCommand(args)
+            ? await ResearchBaselineCommands.RunAsync(args, app.Services, Console.Out, Console.Error, cancellation.Token)
+            : ControlledAutomationCommands.IsCommand(args)
             ? await ControlledAutomationCommands.RunAsync(args, app.Services, builder.Configuration, Console.Out,
                 Console.Error, cancellation.Token)
             : LiveReconciliationCommands.IsCommand(args)
@@ -229,12 +232,22 @@ app.MapGet("/api/certificates", async (IServiceScopeFactory scopes, IConfigurati
     var certificates = await scope.ServiceProvider.GetRequiredService<IStrategyCertificateStore>()
         .ListAsync(cancellationToken: token);
     var now = DateTime.UtcNow;
-    return Results.Ok(new { schemaVersion = 1, certificates = certificates.Select(item => new
+    return Results.Ok(new
     {
-        item.Id, item.ResearchRunId, item.StrategyId, item.IssuedAtUtc, item.ExpiresAtUtc, item.Status,
-        isCurrentlyValid = item.IssuedAtUtc <= now && now < item.ExpiresAtUtc,
-        item.ResearchArtifactSha256, item.CertificateSha256
-    }) });
+        schemaVersion = 1,
+        certificates = certificates.Select(item => new
+        {
+            item.Id,
+            item.ResearchRunId,
+            item.StrategyId,
+            item.IssuedAtUtc,
+            item.ExpiresAtUtc,
+            item.Status,
+            isCurrentlyValid = item.IssuedAtUtc <= now && now < item.ExpiresAtUtc,
+            item.ResearchArtifactSha256,
+            item.CertificateSha256
+        })
+    });
 });
 app.MapGet("/api/certificates/{id:guid}", async (Guid id, IServiceScopeFactory scopes,
     IConfiguration configuration, CancellationToken token) =>
@@ -332,10 +345,26 @@ app.MapGet("/api/reports", async (IServiceScopeFactory scopes, IConfiguration co
         return Results.Ok(new { schemaVersion = 1, reports = Array.Empty<object>(), message = "Database is not configured." });
     await using var scope = scopes.CreateAsyncScope();
     var runs = await scope.ServiceProvider.GetRequiredService<IResearchRunStore>().ListAsync(cancellationToken: token);
-    return Results.Ok(new { schemaVersion = 1, reports = runs.Select(run => new { run.Id, run.CreatedAtUtc,
-        run.InstrumentId, timeframe = (int)run.Timeframe, run.FromUtc, run.ToUtc, run.DataSource,
-        run.DataVersion, run.CalendarId, run.DatasetSha256, run.ConfigurationSha256,
-        run.ArtifactSha256, run.SourceRevision }) });
+    return Results.Ok(new
+    {
+        schemaVersion = 1,
+        reports = runs.Select(run => new
+        {
+            run.Id,
+            run.CreatedAtUtc,
+            run.InstrumentId,
+            timeframe = (int)run.Timeframe,
+            run.FromUtc,
+            run.ToUtc,
+            run.DataSource,
+            run.DataVersion,
+            run.CalendarId,
+            run.DatasetSha256,
+            run.ConfigurationSha256,
+            run.ArtifactSha256,
+            run.SourceRevision
+        })
+    });
 });
 app.MapGet("/api/reports/{id:guid}", async (Guid id, IServiceScopeFactory scopes,
     IConfiguration configuration, CancellationToken token) =>

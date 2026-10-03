@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -257,6 +258,63 @@ public sealed class CandleManifestImporterTests
         var manifestPath = Path.Combine(root, "manifest.json");
         await File.WriteAllTextAsync(manifestPath, JsonSerializer.Serialize(manifest, new JsonSerializerOptions { WriteIndented = true }));
         return manifestPath;
+    }
+
+    [Fact]
+    public async Task Multi_file_window_uses_last_file_end_timestamp()
+    {
+        var root = NewDirectory();
+        await using var database = await TestDatabase.CreateAsync();
+        try
+        {
+            await database.Store.AddInstrumentAsync(new Instrument(InstrumentId, "NSE", "NIFTY50", "Nifty 50", 1, .05m));
+            var path = await CreateManifestAsync(root);
+            var manifest = JsonNode.Parse(await File.ReadAllTextAsync(path))!;
+            var last = Open.AddMinutes(1);
+            const string relative = "2025/01/second.csv";
+            var csvPath = Path.Combine(root, relative);
+            await File.WriteAllTextAsync(csvPath, Csv.Replace("09:15:00", "09:16:00"), new UTF8Encoding(false));
+            var window = manifest["windows"]![0]!;
+            window["files"]!.AsArray().Add(JsonSerializer.SerializeToNode(new
+            {
+                relativePath = relative, rowCount = 1, firstTimestamp = last, lastTimestamp = last,
+                sha256 = Convert.ToHexString(SHA256.HashData(await File.ReadAllBytesAsync(csvPath))).ToLowerInvariant(), zeroVolumeRows = 0
+            }));
+            window["rowCount"] = 2;
+            window["lastTimestamp"] = JsonValue.Create(last);
+            manifest["totalRows"] = 2;
+            manifest["actualTo"] = JsonValue.Create(last);
+            await File.WriteAllTextAsync(path, manifest.ToJsonString());
+            var result = await new CandleManifestImporter(database.Store).ImportAsync(path, InstrumentId, false, DateTimeOffset.UtcNow);
+            Assert.Equal(2, result.DownloadedRows);
+            Assert.Empty(await database.Context.Candles.ToListAsync());
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
+    [Fact]
+    public async Task Provisional_price_audit_writes_report_but_never_changes_database()
+    {
+        var root = NewDirectory();
+        await using var database = await TestDatabase.CreateAsync();
+        try
+        {
+            await database.Store.AddInstrumentAsync(new Instrument(InstrumentId, "NSE", "NIFTY50", "Nifty 50", 1, .05m));
+            await database.Store.AddCandlesAsync([new(InstrumentId, Timeframe.Minute1, Open, 100, 102, 99, 101, 0)]);
+            await using var services = new ServiceCollection().AddDbContext<TradingDbContext>(options => options.UseSqlite(database.Connection))
+                .AddScoped<IMarketDataStore, MarketDataStore>().BuildServiceProvider();
+            var reportPath = Path.Combine(root, "baseline.json");
+            var error = new StringWriter();
+            var code = await ResearchBaselineCommands.RunAsync(["audit-price-baseline", "--instrument-id", InstrumentId.ToString(),
+                "--from", "2025-01-02", "--to-exclusive", "2025-01-03", "--output", reportPath], services, new StringWriter(), error);
+            Assert.Equal(2, code);
+            Assert.True(File.Exists(reportPath), error.ToString());
+            using var report = JsonDocument.Parse(await File.ReadAllTextAsync(reportPath));
+            Assert.False(report.RootElement.GetProperty("SelectedSliceComplete").GetBoolean());
+            Assert.Equal(0, report.RootElement.GetProperty("strategies").GetArrayLength());
+            Assert.Equal(1, await database.Context.Candles.CountAsync());
+        }
+        finally { Directory.Delete(root, true); }
     }
 
     private static string NewDirectory()

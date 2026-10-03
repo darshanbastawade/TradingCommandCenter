@@ -99,7 +99,7 @@ public sealed class CandleManifestImporter(IMarketDataStore store)
             if (window.Status != "completed" || windowRows == 0 || windowRows != window.RowCount || window.Files.Count == 0)
                 throw new CandleImportException($"Completed window {window.From:yyyy-MM} has incomplete or empty file evidence.");
             var windowCandles = allCandles.Skip(allCandles.Count - windowRows).ToArray();
-            if (window.FirstTimestamp != fileFirst[^window.Files.Count] || window.LastTimestamp != fileLast[^window.Files.Count] ||
+            if (window.FirstTimestamp != fileFirst[^window.Files.Count] || window.LastTimestamp != fileLast[^1] ||
                 windowCandles[0].OpenTimeUtc != window.FirstTimestamp?.UtcDateTime || windowCandles[^1].OpenTimeUtc != window.LastTimestamp?.UtcDateTime)
                 throw new CandleImportException($"Manifest window timestamp bounds do not match {window.From:yyyy-MM}.");
         }

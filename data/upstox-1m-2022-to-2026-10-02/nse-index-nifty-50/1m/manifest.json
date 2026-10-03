@@ -1,0 +1,1125 @@
+{
+  "schemaVersion": 2,
+  "provider": "Upstox",
+  "providerApi": "historical-candle-v3",
+  "instrumentKey": "NSE_INDEX|Nifty 50",
+  "intervalMinutes": 1,
+  "requestedFrom": "2022-01-01",
+  "requestedTo": "2026-10-02",
+  "actualFrom": "2022-01-03T09:15:00+05:30",
+  "actualTo": "2026-10-01T15:29:00+05:30",
+  "downloadedAtUtc": "2026-10-03T05:00:37.6095869+00:00",
+  "totalRows": 440167,
+  "zeroVolumeRows": 440167,
+  "missingVolumeRows": 0,
+  "sessionCompleteness": "unverified",
+  "coverageWarnings": [
+    "Exchange session completeness is unverified; this is raw provider data and is not research-certified.",
+    "Zero-volume index candles may be unsuitable for VWAP and other volume-dependent strategies.",
+    "Missing-volume candles are rejected rather than replaced; missingVolumeRows counts accepted records and is zero."
+  ],
+  "windows": [
+    {
+      "from": "2022-01-01",
+      "to": "2022-01-31",
+      "status": "completed",
+      "rowCount": 7500,
+      "firstTimestamp": "2022-01-03T09:15:00+05:30",
+      "lastTimestamp": "2022-01-31T15:29:00+05:30",
+      "files": [
+        {
+          "relativePath": "2022\\01\\nse-index-nifty-50-1m-2022-01-01.csv",
+          "rowCount": 7500,
+          "firstTimestamp": "2022-01-03T09:15:00+05:30",
+          "lastTimestamp": "2022-01-31T15:29:00+05:30",
+          "sha256": "03bc47dbbefe2766763d502f880005121338b64acdbd02b96247d7cf4a390380",
+          "zeroVolumeRows": 7500
+        }
+      ],
+      "error": null
+    },
+    {
+      "from": "2022-02-01",
+      "to": "2022-02-28",
+      "status": "completed",
+      "rowCount": 7500,
+      "firstTimestamp": "2022-02-01T09:15:00+05:30",
+      "lastTimestamp": "2022-02-28T15:29:00+05:30",
+      "files": [
+        {
+          "relativePath": "2022\\02\\nse-index-nifty-50-1m-2022-02-01.csv",
+          "rowCount": 7500,
+          "firstTimestamp": "2022-02-01T09:15:00+05:30",
+          "lastTimestamp": "2022-02-28T15:29:00+05:30",
+          "sha256": "6d2ed55830d1b1d823d1de3e78528f1f4f161807a46a4dcad27fabcfb00a1c0b",
+          "zeroVolumeRows": 7500
+        }
+      ],
+      "error": null
+    },
+    {
+      "from": "2022-03-01",
+      "to": "2022-03-31",
+      "status": "completed",
+      "rowCount": 7885,
+      "firstTimestamp": "2022-03-02T09:15:00+05:30",
+      "lastTimestamp": "2022-03-31T15:31:00+05:30",
+      "files": [
+        {
+          "relativePath": "2022\\03\\nse-index-nifty-50-1m-2022-03-01.csv",
+          "rowCount": 7885,
+          "firstTimestamp": "2022-03-02T09:15:00+05:30",
+          "lastTimestamp": "2022-03-31T15:31:00+05:30",
+          "sha256": "01e05984cfa260db20a1e6213dd4541f10e9ad44301a932b41b404bfa4ee30b5",
+          "zeroVolumeRows": 7885
+        }
+      ],
+      "error": null
+    },
+    {
+      "from": "2022-04-01",
+      "to": "2022-04-30",
+      "status": "completed",
+      "rowCount": 7169,
+      "firstTimestamp": "2022-04-01T09:07:00+05:30",
+      "lastTimestamp": "2022-04-29T15:31:00+05:30",
+      "files": [
+        {
+          "relativePath": "2022\\04\\nse-index-nifty-50-1m-2022-04-01.csv",
+          "rowCount": 7169,
+          "firstTimestamp": "2022-04-01T09:07:00+05:30",
+          "lastTimestamp": "2022-04-29T15:31:00+05:30",
+          "sha256": "428cae27265f72b13a8940b0d59d1bfdd3c6cf94d86d6be79a1fae22976c26d8",
+          "zeroVolumeRows": 7169
+        }
+      ],
+      "error": null
+    },
+    {
+      "from": "2022-05-01",
+      "to": "2022-05-31",
+      "status": "completed",
+      "rowCount": 7927,
+      "firstTimestamp": "2022-05-02T09:07:00+05:30",
+      "lastTimestamp": "2022-05-31T15:31:00+05:30",
+      "files": [
+        {
+          "relativePath": "2022\\05\\nse-index-nifty-50-1m-2022-05-01.csv",
+          "rowCount": 7927,
+          "firstTimestamp": "2022-05-02T09:07:00+05:30",
+          "lastTimestamp": "2022-05-31T15:31:00+05:30",
+          "sha256": "ed1ee74c4770c271cdd0b2cf0f6c0fff1eaf882021fe8bdfea65e418c63dee46",
+          "zeroVolumeRows": 7927
+        }
+      ],
+      "error": null
+    },
+    {
+      "from": "2022-06-01",
+      "to": "2022-06-30",
+      "status": "completed",
+      "rowCount": 8310,
+      "firstTimestamp": "2022-06-01T09:07:00+05:30",
+      "lastTimestamp": "2022-06-30T15:31:00+05:30",
+      "files": [
+        {
+          "relativePath": "2022\\06\\nse-index-nifty-50-1m-2022-06-01.csv",
+          "rowCount": 8310,
+          "firstTimestamp": "2022-06-01T09:07:00+05:30",
+          "lastTimestamp": "2022-06-30T15:31:00+05:30",
+          "sha256": "5c384634149e971f8489b73976aa4fe99bf5fed68bdf55eb781ced4f46e1ac67",
+          "zeroVolumeRows": 8310
+        }
+      ],
+      "error": null
+    },
+    {
+      "from": "2022-07-01",
+      "to": "2022-07-31",
+      "status": "completed",
+      "rowCount": 7920,
+      "firstTimestamp": "2022-07-01T09:07:00+05:30",
+      "lastTimestamp": "2022-07-29T15:29:00+05:30",
+      "files": [
+        {
+          "relativePath": "2022\\07\\nse-index-nifty-50-1m-2022-07-01.csv",
+          "rowCount": 7920,
+          "firstTimestamp": "2022-07-01T09:07:00+05:30",
+          "lastTimestamp": "2022-07-29T15:29:00+05:30",
+          "sha256": "d7fff311b3128000786c840ee8804371cda8ffaad73a14ff760d351b9bc818ab",
+          "zeroVolumeRows": 7920
+        }
+      ],
+      "error": null
+    },
+    {
+      "from": "2022-08-01",
+      "to": "2022-08-31",
+      "status": "completed",
+      "rowCount": 7500,
+      "firstTimestamp": "2022-08-01T09:15:00+05:30",
+      "lastTimestamp": "2022-08-30T15:29:00+05:30",
+      "files": [
+        {
+          "relativePath": "2022\\08\\nse-index-nifty-50-1m-2022-08-01.csv",
+          "rowCount": 7500,
+          "firstTimestamp": "2022-08-01T09:15:00+05:30",
+          "lastTimestamp": "2022-08-30T15:29:00+05:30",
+          "sha256": "526ae70496c9c2aeecc18934d9d234489ea29eb0c1ecf9b1516e7ac0058e15f8",
+          "zeroVolumeRows": 7500
+        }
+      ],
+      "error": null
+    },
+    {
+      "from": "2022-09-01",
+      "to": "2022-09-30",
+      "status": "completed",
+      "rowCount": 8250,
+      "firstTimestamp": "2022-09-01T09:15:00+05:30",
+      "lastTimestamp": "2022-09-30T15:29:00+05:30",
+      "files": [
+        {
+          "relativePath": "2022\\09\\nse-index-nifty-50-1m-2022-09-01.csv",
+          "rowCount": 8250,
+          "firstTimestamp": "2022-09-01T09:15:00+05:30",
+          "lastTimestamp": "2022-09-30T15:29:00+05:30",
+          "sha256": "5b4ce970901b27980e83813a4d40f16be42f4edcb4de92a29903ad02496bde2f",
+          "zeroVolumeRows": 8250
+        }
+      ],
+      "error": null
+    },
+    {
+      "from": "2022-10-01",
+      "to": "2022-10-31",
+      "status": "completed",
+      "rowCount": 6810,
+      "firstTimestamp": "2022-10-03T09:15:00+05:30",
+      "lastTimestamp": "2022-10-31T15:29:00+05:30",
+      "files": [
+        {
+          "relativePath": "2022\\10\\nse-index-nifty-50-1m-2022-10-01.csv",
+          "rowCount": 6810,
+          "firstTimestamp": "2022-10-03T09:15:00+05:30",
+          "lastTimestamp": "2022-10-31T15:29:00+05:30",
+          "sha256": "fddec1ec5aa88ef3d32d9d002c5f39892cbec6cd0bf56ae323ab5f4d4892fa17",
+          "zeroVolumeRows": 6810
+        }
+      ],
+      "error": null
+    },
+    {
+      "from": "2022-11-01",
+      "to": "2022-11-30",
+      "status": "completed",
+      "rowCount": 7875,
+      "firstTimestamp": "2022-11-01T09:15:00+05:30",
+      "lastTimestamp": "2022-11-30T15:29:00+05:30",
+      "files": [
+        {
+          "relativePath": "2022\\11\\nse-index-nifty-50-1m-2022-11-01.csv",
+          "rowCount": 7875,
+          "firstTimestamp": "2022-11-01T09:15:00+05:30",
+          "lastTimestamp": "2022-11-30T15:29:00+05:30",
+          "sha256": "c2536c2a48c082772708ee969ca625a8ac2510ecd97e13267ac7b2fe9a1b0884",
+          "zeroVolumeRows": 7875
+        }
+      ],
+      "error": null
+    },
+    {
+      "from": "2022-12-01",
+      "to": "2022-12-31",
+      "status": "completed",
+      "rowCount": 8250,
+      "firstTimestamp": "2022-12-01T09:15:00+05:30",
+      "lastTimestamp": "2022-12-30T15:29:00+05:30",
+      "files": [
+        {
+          "relativePath": "2022\\12\\nse-index-nifty-50-1m-2022-12-01.csv",
+          "rowCount": 8250,
+          "firstTimestamp": "2022-12-01T09:15:00+05:30",
+          "lastTimestamp": "2022-12-30T15:29:00+05:30",
+          "sha256": "3870ca9fd49555952f90b825328142de2db9489a914b67ed9eaa9488520d8d6d",
+          "zeroVolumeRows": 8250
+        }
+      ],
+      "error": null
+    },
+    {
+      "from": "2023-01-01",
+      "to": "2023-01-31",
+      "status": "completed",
+      "rowCount": 7875,
+      "firstTimestamp": "2023-01-02T09:15:00+05:30",
+      "lastTimestamp": "2023-01-31T15:29:00+05:30",
+      "files": [
+        {
+          "relativePath": "2023\\01\\nse-index-nifty-50-1m-2023-01-01.csv",
+          "rowCount": 7875,
+          "firstTimestamp": "2023-01-02T09:15:00+05:30",
+          "lastTimestamp": "2023-01-31T15:29:00+05:30",
+          "sha256": "9067a7ebe5b62ce9effd76b4b2c1aab474f68a0d0b762de96a44d298605ba1a4",
+          "zeroVolumeRows": 7875
+        }
+      ],
+      "error": null
+    },
+    {
+      "from": "2023-02-01",
+      "to": "2023-02-28",
+      "status": "completed",
+      "rowCount": 7500,
+      "firstTimestamp": "2023-02-01T09:15:00+05:30",
+      "lastTimestamp": "2023-02-28T15:29:00+05:30",
+      "files": [
+        {
+          "relativePath": "2023\\02\\nse-index-nifty-50-1m-2023-02-01.csv",
+          "rowCount": 7500,
+          "firstTimestamp": "2023-02-01T09:15:00+05:30",
+          "lastTimestamp": "2023-02-28T15:29:00+05:30",
+          "sha256": "58d9103b18c3516ac511780180276b168616184c736792c60c65199fd8dcf207",
+          "zeroVolumeRows": 7500
+        }
+      ],
+      "error": null
+    },
+    {
+      "from": "2023-03-01",
+      "to": "2023-03-31",
+      "status": "completed",
+      "rowCount": 7875,
+      "firstTimestamp": "2023-03-01T09:15:00+05:30",
+      "lastTimestamp": "2023-03-31T15:29:00+05:30",
+      "files": [
+        {
+          "relativePath": "2023\\03\\nse-index-nifty-50-1m-2023-03-01.csv",
+          "rowCount": 7875,
+          "firstTimestamp": "2023-03-01T09:15:00+05:30",
+          "lastTimestamp": "2023-03-31T15:29:00+05:30",
+          "sha256": "1ec1e086c966718365c9f2d734c20b030765df47cb85c56e347263462376dc24",
+          "zeroVolumeRows": 7875
+        }
+      ],
+      "error": null
+    },
+    {
+      "from": "2023-04-01",
+      "to": "2023-04-30",
+      "status": "completed",
+      "rowCount": 6375,
+      "firstTimestamp": "2023-04-03T09:15:00+05:30",
+      "lastTimestamp": "2023-04-28T15:29:00+05:30",
+      "files": [
+        {
+          "relativePath": "2023\\04\\nse-index-nifty-50-1m-2023-04-01.csv",
+          "rowCount": 6375,
+          "firstTimestamp": "2023-04-03T09:15:00+05:30",
+          "lastTimestamp": "2023-04-28T15:29:00+05:30",
+          "sha256": "a16ef97dd0cacedf0b97f0c1ac0530589c598bb74a011f362ad3f8e3dd508131",
+          "zeroVolumeRows": 6375
+        }
+      ],
+      "error": null
+    },
+    {
+      "from": "2023-05-01",
+      "to": "2023-05-31",
+      "status": "completed",
+      "rowCount": 8250,
+      "firstTimestamp": "2023-05-02T09:15:00+05:30",
+      "lastTimestamp": "2023-05-31T15:29:00+05:30",
+      "files": [
+        {
+          "relativePath": "2023\\05\\nse-index-nifty-50-1m-2023-05-01.csv",
+          "rowCount": 8250,
+          "firstTimestamp": "2023-05-02T09:15:00+05:30",
+          "lastTimestamp": "2023-05-31T15:29:00+05:30",
+          "sha256": "b6e8ff84766583308b2e475fda94be952bbcee1e7b43ef11f14cd6e363ec256a",
+          "zeroVolumeRows": 8250
+        }
+      ],
+      "error": null
+    },
+    {
+      "from": "2023-06-01",
+      "to": "2023-06-30",
+      "status": "completed",
+      "rowCount": 7875,
+      "firstTimestamp": "2023-06-01T09:15:00+05:30",
+      "lastTimestamp": "2023-06-30T15:29:00+05:30",
+      "files": [
+        {
+          "relativePath": "2023\\06\\nse-index-nifty-50-1m-2023-06-01.csv",
+          "rowCount": 7875,
+          "firstTimestamp": "2023-06-01T09:15:00+05:30",
+          "lastTimestamp": "2023-06-30T15:29:00+05:30",
+          "sha256": "d384f55ce6b96aca79b2861a64e2c0bc39a8e6fde93bf3e89e3829a9f7d59817",
+          "zeroVolumeRows": 7875
+        }
+      ],
+      "error": null
+    },
+    {
+      "from": "2023-07-01",
+      "to": "2023-07-31",
+      "status": "completed",
+      "rowCount": 7875,
+      "firstTimestamp": "2023-07-03T09:15:00+05:30",
+      "lastTimestamp": "2023-07-31T15:29:00+05:30",
+      "files": [
+        {
+          "relativePath": "2023\\07\\nse-index-nifty-50-1m-2023-07-01.csv",
+          "rowCount": 7875,
+          "firstTimestamp": "2023-07-03T09:15:00+05:30",
+          "lastTimestamp": "2023-07-31T15:29:00+05:30",
+          "sha256": "252e191d48fe5225f8adcf19738683d589115bb26aecfb32ed6870049b43bce0",
+          "zeroVolumeRows": 7875
+        }
+      ],
+      "error": null
+    },
+    {
+      "from": "2023-08-01",
+      "to": "2023-08-31",
+      "status": "completed",
+      "rowCount": 8250,
+      "firstTimestamp": "2023-08-01T09:15:00+05:30",
+      "lastTimestamp": "2023-08-31T15:29:00+05:30",
+      "files": [
+        {
+          "relativePath": "2023\\08\\nse-index-nifty-50-1m-2023-08-01.csv",
+          "rowCount": 8250,
+          "firstTimestamp": "2023-08-01T09:15:00+05:30",
+          "lastTimestamp": "2023-08-31T15:29:00+05:30",
+          "sha256": "59b5d7c710c5c6d16e0f0550ea5f6e8ff3435f9f4da60ac191d05bec55546f08",
+          "zeroVolumeRows": 8250
+        }
+      ],
+      "error": null
+    },
+    {
+      "from": "2023-09-01",
+      "to": "2023-09-30",
+      "status": "completed",
+      "rowCount": 7500,
+      "firstTimestamp": "2023-09-01T09:15:00+05:30",
+      "lastTimestamp": "2023-09-29T15:29:00+05:30",
+      "files": [
+        {
+          "relativePath": "2023\\09\\nse-index-nifty-50-1m-2023-09-01.csv",
+          "rowCount": 7500,
+          "firstTimestamp": "2023-09-01T09:15:00+05:30",
+          "lastTimestamp": "2023-09-29T15:29:00+05:30",
+          "sha256": "648dd20fb9c7884e9bf47ecccd73edd62bcf8ce70f9b9a2b17b7c8a5b8c78ea7",
+          "zeroVolumeRows": 7500
+        }
+      ],
+      "error": null
+    },
+    {
+      "from": "2023-10-01",
+      "to": "2023-10-31",
+      "status": "completed",
+      "rowCount": 7500,
+      "firstTimestamp": "2023-10-03T09:15:00+05:30",
+      "lastTimestamp": "2023-10-31T15:29:00+05:30",
+      "files": [
+        {
+          "relativePath": "2023\\10\\nse-index-nifty-50-1m-2023-10-01.csv",
+          "rowCount": 7500,
+          "firstTimestamp": "2023-10-03T09:15:00+05:30",
+          "lastTimestamp": "2023-10-31T15:29:00+05:30",
+          "sha256": "c9ee274aa0d4c8257bc8cf3fe9a90140c9e90b16581f797ba1bf82737c9dff63",
+          "zeroVolumeRows": 7500
+        }
+      ],
+      "error": null
+    },
+    {
+      "from": "2023-11-01",
+      "to": "2023-11-30",
+      "status": "completed",
+      "rowCount": 7560,
+      "firstTimestamp": "2023-11-01T09:15:00+05:30",
+      "lastTimestamp": "2023-11-30T15:29:00+05:30",
+      "files": [
+        {
+          "relativePath": "2023\\11\\nse-index-nifty-50-1m-2023-11-01.csv",
+          "rowCount": 7560,
+          "firstTimestamp": "2023-11-01T09:15:00+05:30",
+          "lastTimestamp": "2023-11-30T15:29:00+05:30",
+          "sha256": "69b196461dbff17987d346aa5cc18b43e0fc0f29530cdcdcf90e990b983f526d",
+          "zeroVolumeRows": 7560
+        }
+      ],
+      "error": null
+    },
+    {
+      "from": "2023-12-01",
+      "to": "2023-12-31",
+      "status": "completed",
+      "rowCount": 7500,
+      "firstTimestamp": "2023-12-01T09:15:00+05:30",
+      "lastTimestamp": "2023-12-29T15:29:00+05:30",
+      "files": [
+        {
+          "relativePath": "2023\\12\\nse-index-nifty-50-1m-2023-12-01.csv",
+          "rowCount": 7500,
+          "firstTimestamp": "2023-12-01T09:15:00+05:30",
+          "lastTimestamp": "2023-12-29T15:29:00+05:30",
+          "sha256": "fc0a760777107c1a28dd02ad75b5157f80fe18ee786797603cc824b00c673980",
+          "zeroVolumeRows": 7500
+        }
+      ],
+      "error": null
+    },
+    {
+      "from": "2024-01-01",
+      "to": "2024-01-31",
+      "status": "completed",
+      "rowCount": 8250,
+      "firstTimestamp": "2024-01-01T09:15:00+05:30",
+      "lastTimestamp": "2024-01-31T15:29:00+05:30",
+      "files": [
+        {
+          "relativePath": "2024\\01\\nse-index-nifty-50-1m-2024-01-01.csv",
+          "rowCount": 8250,
+          "firstTimestamp": "2024-01-01T09:15:00+05:30",
+          "lastTimestamp": "2024-01-31T15:29:00+05:30",
+          "sha256": "f944e34b5f51dc23322a69ce8ec5f65473c2add13de5c54bbf6bec74ddb31eb4",
+          "zeroVolumeRows": 8250
+        }
+      ],
+      "error": null
+    },
+    {
+      "from": "2024-02-01",
+      "to": "2024-02-29",
+      "status": "completed",
+      "rowCount": 7875,
+      "firstTimestamp": "2024-02-01T09:15:00+05:30",
+      "lastTimestamp": "2024-02-29T15:29:00+05:30",
+      "files": [
+        {
+          "relativePath": "2024\\02\\nse-index-nifty-50-1m-2024-02-01.csv",
+          "rowCount": 7875,
+          "firstTimestamp": "2024-02-01T09:15:00+05:30",
+          "lastTimestamp": "2024-02-29T15:29:00+05:30",
+          "sha256": "d225f8e820dd50880930288637529faa429e9349a79203f1c3406d46445c213c",
+          "zeroVolumeRows": 7875
+        }
+      ],
+      "error": null
+    },
+    {
+      "from": "2024-03-01",
+      "to": "2024-03-31",
+      "status": "completed",
+      "rowCount": 6855,
+      "firstTimestamp": "2024-03-01T09:15:00+05:30",
+      "lastTimestamp": "2024-03-28T15:29:00+05:30",
+      "files": [
+        {
+          "relativePath": "2024\\03\\nse-index-nifty-50-1m-2024-03-01.csv",
+          "rowCount": 6855,
+          "firstTimestamp": "2024-03-01T09:15:00+05:30",
+          "lastTimestamp": "2024-03-28T15:29:00+05:30",
+          "sha256": "7c77d83c248f0049ac3ac6ce6c10de264220661c65df8a0e8f45a73b92a76353",
+          "zeroVolumeRows": 6855
+        }
+      ],
+      "error": null
+    },
+    {
+      "from": "2024-04-01",
+      "to": "2024-04-30",
+      "status": "completed",
+      "rowCount": 7500,
+      "firstTimestamp": "2024-04-01T09:15:00+05:30",
+      "lastTimestamp": "2024-04-30T15:29:00+05:30",
+      "files": [
+        {
+          "relativePath": "2024\\04\\nse-index-nifty-50-1m-2024-04-01.csv",
+          "rowCount": 7500,
+          "firstTimestamp": "2024-04-01T09:15:00+05:30",
+          "lastTimestamp": "2024-04-30T15:29:00+05:30",
+          "sha256": "3b453a06560853382fc8694a0a325fdcde6ed5605b09a40186a29de1be643c46",
+          "zeroVolumeRows": 7500
+        }
+      ],
+      "error": null
+    },
+    {
+      "from": "2024-05-01",
+      "to": "2024-05-31",
+      "status": "completed",
+      "rowCount": 7980,
+      "firstTimestamp": "2024-05-02T09:15:00+05:30",
+      "lastTimestamp": "2024-05-31T15:29:00+05:30",
+      "files": [
+        {
+          "relativePath": "2024\\05\\nse-index-nifty-50-1m-2024-05-01.csv",
+          "rowCount": 7980,
+          "firstTimestamp": "2024-05-02T09:15:00+05:30",
+          "lastTimestamp": "2024-05-31T15:29:00+05:30",
+          "sha256": "5a07e60adb0971c24b60360c1b7e09e058e935f2df0f77f0dc65b5f6e9cd8357",
+          "zeroVolumeRows": 7980
+        }
+      ],
+      "error": null
+    },
+    {
+      "from": "2024-06-01",
+      "to": "2024-06-30",
+      "status": "completed",
+      "rowCount": 7125,
+      "firstTimestamp": "2024-06-03T09:15:00+05:30",
+      "lastTimestamp": "2024-06-28T15:29:00+05:30",
+      "files": [
+        {
+          "relativePath": "2024\\06\\nse-index-nifty-50-1m-2024-06-01.csv",
+          "rowCount": 7125,
+          "firstTimestamp": "2024-06-03T09:15:00+05:30",
+          "lastTimestamp": "2024-06-28T15:29:00+05:30",
+          "sha256": "5a4091ffeb357f1f05ea8ad9f3e1255ea849ef6c9281c3b6adc3b64da760532c",
+          "zeroVolumeRows": 7125
+        }
+      ],
+      "error": null
+    },
+    {
+      "from": "2024-07-01",
+      "to": "2024-07-31",
+      "status": "completed",
+      "rowCount": 8250,
+      "firstTimestamp": "2024-07-01T09:15:00+05:30",
+      "lastTimestamp": "2024-07-31T15:29:00+05:30",
+      "files": [
+        {
+          "relativePath": "2024\\07\\nse-index-nifty-50-1m-2024-07-01.csv",
+          "rowCount": 8250,
+          "firstTimestamp": "2024-07-01T09:15:00+05:30",
+          "lastTimestamp": "2024-07-31T15:29:00+05:30",
+          "sha256": "e7fcd2b7dc991740913b14eced912f6aa90798253b18220f13ab7ed163efcdc0",
+          "zeroVolumeRows": 8250
+        }
+      ],
+      "error": null
+    },
+    {
+      "from": "2024-08-01",
+      "to": "2024-08-31",
+      "status": "completed",
+      "rowCount": 7875,
+      "firstTimestamp": "2024-08-01T09:15:00+05:30",
+      "lastTimestamp": "2024-08-30T15:29:00+05:30",
+      "files": [
+        {
+          "relativePath": "2024\\08\\nse-index-nifty-50-1m-2024-08-01.csv",
+          "rowCount": 7875,
+          "firstTimestamp": "2024-08-01T09:15:00+05:30",
+          "lastTimestamp": "2024-08-30T15:29:00+05:30",
+          "sha256": "e750279c7eb2e0c5fbd574748cae68a05ec29345f148935f1ae81de6be7d27cc",
+          "zeroVolumeRows": 7875
+        }
+      ],
+      "error": null
+    },
+    {
+      "from": "2024-09-01",
+      "to": "2024-09-30",
+      "status": "completed",
+      "rowCount": 7875,
+      "firstTimestamp": "2024-09-02T09:15:00+05:30",
+      "lastTimestamp": "2024-09-30T15:29:00+05:30",
+      "files": [
+        {
+          "relativePath": "2024\\09\\nse-index-nifty-50-1m-2024-09-01.csv",
+          "rowCount": 7875,
+          "firstTimestamp": "2024-09-02T09:15:00+05:30",
+          "lastTimestamp": "2024-09-30T15:29:00+05:30",
+          "sha256": "e6fb7ae6778c79ca5f04ed24472d8a257cf0ef741f97a98651a2bfc09afd5a89",
+          "zeroVolumeRows": 7875
+        }
+      ],
+      "error": null
+    },
+    {
+      "from": "2024-10-01",
+      "to": "2024-10-31",
+      "status": "completed",
+      "rowCount": 8250,
+      "firstTimestamp": "2024-10-01T09:15:00+05:30",
+      "lastTimestamp": "2024-10-31T15:29:00+05:30",
+      "files": [
+        {
+          "relativePath": "2024\\10\\nse-index-nifty-50-1m-2024-10-01.csv",
+          "rowCount": 8250,
+          "firstTimestamp": "2024-10-01T09:15:00+05:30",
+          "lastTimestamp": "2024-10-31T15:29:00+05:30",
+          "sha256": "3d29fff4f3ab27b0bffbd50bfbf838e2ef9268762b11a8baab8a10b941e6bf38",
+          "zeroVolumeRows": 8250
+        }
+      ],
+      "error": null
+    },
+    {
+      "from": "2024-11-01",
+      "to": "2024-11-30",
+      "status": "completed",
+      "rowCount": 6810,
+      "firstTimestamp": "2024-11-01T18:00:00+05:30",
+      "lastTimestamp": "2024-11-29T15:29:00+05:30",
+      "files": [
+        {
+          "relativePath": "2024\\11\\nse-index-nifty-50-1m-2024-11-01.csv",
+          "rowCount": 6810,
+          "firstTimestamp": "2024-11-01T18:00:00+05:30",
+          "lastTimestamp": "2024-11-29T15:29:00+05:30",
+          "sha256": "3a3f6727b18330c87c0b59609640a3c4351cb1ae008cdbb1071b37433eca3a7b",
+          "zeroVolumeRows": 6810
+        }
+      ],
+      "error": null
+    },
+    {
+      "from": "2024-12-01",
+      "to": "2024-12-31",
+      "status": "completed",
+      "rowCount": 7874,
+      "firstTimestamp": "2024-12-02T09:15:00+05:30",
+      "lastTimestamp": "2024-12-31T15:29:00+05:30",
+      "files": [
+        {
+          "relativePath": "2024\\12\\nse-index-nifty-50-1m-2024-12-01.csv",
+          "rowCount": 7874,
+          "firstTimestamp": "2024-12-02T09:15:00+05:30",
+          "lastTimestamp": "2024-12-31T15:29:00+05:30",
+          "sha256": "ec2fafe5d5b79b44d764c7a4099dbbbbc2904f245798791e04b1c8fc4967463d",
+          "zeroVolumeRows": 7874
+        }
+      ],
+      "error": null
+    },
+    {
+      "from": "2025-01-01",
+      "to": "2025-01-31",
+      "status": "completed",
+      "rowCount": 8625,
+      "firstTimestamp": "2025-01-01T09:15:00+05:30",
+      "lastTimestamp": "2025-01-31T15:29:00+05:30",
+      "files": [
+        {
+          "relativePath": "2025\\01\\nse-index-nifty-50-1m-2025-01-01.csv",
+          "rowCount": 8625,
+          "firstTimestamp": "2025-01-01T09:15:00+05:30",
+          "lastTimestamp": "2025-01-31T15:29:00+05:30",
+          "sha256": "52b31012833373c27afc8193ac9461614c7b88991379779f8719a2325e038bd0",
+          "zeroVolumeRows": 8625
+        }
+      ],
+      "error": null
+    },
+    {
+      "from": "2025-02-01",
+      "to": "2025-02-28",
+      "status": "completed",
+      "rowCount": 7500,
+      "firstTimestamp": "2025-02-01T09:15:00+05:30",
+      "lastTimestamp": "2025-02-28T15:29:00+05:30",
+      "files": [
+        {
+          "relativePath": "2025\\02\\nse-index-nifty-50-1m-2025-02-01.csv",
+          "rowCount": 7500,
+          "firstTimestamp": "2025-02-01T09:15:00+05:30",
+          "lastTimestamp": "2025-02-28T15:29:00+05:30",
+          "sha256": "2acae09225a979ee6cc84d2524dfaffcc5c6d7844ec7413790992cd6727ec0ea",
+          "zeroVolumeRows": 7500
+        }
+      ],
+      "error": null
+    },
+    {
+      "from": "2025-03-01",
+      "to": "2025-03-31",
+      "status": "completed",
+      "rowCount": 7124,
+      "firstTimestamp": "2025-03-03T09:15:00+05:30",
+      "lastTimestamp": "2025-03-28T15:29:00+05:30",
+      "files": [
+        {
+          "relativePath": "2025\\03\\nse-index-nifty-50-1m-2025-03-01.csv",
+          "rowCount": 7124,
+          "firstTimestamp": "2025-03-03T09:15:00+05:30",
+          "lastTimestamp": "2025-03-28T15:29:00+05:30",
+          "sha256": "70d48ec2765e0e90d61d96054825b32bc096a365b5507f0b59c1b15245584b4c",
+          "zeroVolumeRows": 7124
+        }
+      ],
+      "error": null
+    },
+    {
+      "from": "2025-04-01",
+      "to": "2025-04-30",
+      "status": "completed",
+      "rowCount": 7127,
+      "firstTimestamp": "2025-04-01T09:15:00+05:30",
+      "lastTimestamp": "2025-04-30T15:59:00+05:30",
+      "files": [
+        {
+          "relativePath": "2025\\04\\nse-index-nifty-50-1m-2025-04-01.csv",
+          "rowCount": 7127,
+          "firstTimestamp": "2025-04-01T09:15:00+05:30",
+          "lastTimestamp": "2025-04-30T15:59:00+05:30",
+          "sha256": "d21a3e8c3683ca4560dcd966625687756fc89d0ced741197ee43e13e120d5ae5",
+          "zeroVolumeRows": 7127
+        }
+      ],
+      "error": null
+    },
+    {
+      "from": "2025-05-01",
+      "to": "2025-05-31",
+      "status": "completed",
+      "rowCount": 7881,
+      "firstTimestamp": "2025-05-02T09:15:00+05:30",
+      "lastTimestamp": "2025-05-30T15:29:00+05:30",
+      "files": [
+        {
+          "relativePath": "2025\\05\\nse-index-nifty-50-1m-2025-05-01.csv",
+          "rowCount": 7881,
+          "firstTimestamp": "2025-05-02T09:15:00+05:30",
+          "lastTimestamp": "2025-05-30T15:29:00+05:30",
+          "sha256": "2480dc0b1abe770c2b16705fefe7903bc495afd83e78789e34a6a1fb6acaed0d",
+          "zeroVolumeRows": 7881
+        }
+      ],
+      "error": null
+    },
+    {
+      "from": "2025-06-01",
+      "to": "2025-06-30",
+      "status": "completed",
+      "rowCount": 7875,
+      "firstTimestamp": "2025-06-02T09:15:00+05:30",
+      "lastTimestamp": "2025-06-30T15:29:00+05:30",
+      "files": [
+        {
+          "relativePath": "2025\\06\\nse-index-nifty-50-1m-2025-06-01.csv",
+          "rowCount": 7875,
+          "firstTimestamp": "2025-06-02T09:15:00+05:30",
+          "lastTimestamp": "2025-06-30T15:29:00+05:30",
+          "sha256": "f61d2e86a9268f5f9edfa9772855fafa04997b7d66acf4136744b6b65622d996",
+          "zeroVolumeRows": 7875
+        }
+      ],
+      "error": null
+    },
+    {
+      "from": "2025-07-01",
+      "to": "2025-07-31",
+      "status": "completed",
+      "rowCount": 8625,
+      "firstTimestamp": "2025-07-01T09:15:00+05:30",
+      "lastTimestamp": "2025-07-31T15:29:00+05:30",
+      "files": [
+        {
+          "relativePath": "2025\\07\\nse-index-nifty-50-1m-2025-07-01.csv",
+          "rowCount": 8625,
+          "firstTimestamp": "2025-07-01T09:15:00+05:30",
+          "lastTimestamp": "2025-07-31T15:29:00+05:30",
+          "sha256": "79325779a5493446415fe097b6950712f15228986b3d89d9d73e94f94c4d4e3e",
+          "zeroVolumeRows": 8625
+        }
+      ],
+      "error": null
+    },
+    {
+      "from": "2025-08-01",
+      "to": "2025-08-31",
+      "status": "completed",
+      "rowCount": 7125,
+      "firstTimestamp": "2025-08-01T09:15:00+05:30",
+      "lastTimestamp": "2025-08-29T15:29:00+05:30",
+      "files": [
+        {
+          "relativePath": "2025\\08\\nse-index-nifty-50-1m-2025-08-01.csv",
+          "rowCount": 7125,
+          "firstTimestamp": "2025-08-01T09:15:00+05:30",
+          "lastTimestamp": "2025-08-29T15:29:00+05:30",
+          "sha256": "821042e76d4b8a66862338e787bb3804500033d809fdd535c0f898e935996fe7",
+          "zeroVolumeRows": 7125
+        }
+      ],
+      "error": null
+    },
+    {
+      "from": "2025-09-01",
+      "to": "2025-09-30",
+      "status": "completed",
+      "rowCount": 8250,
+      "firstTimestamp": "2025-09-01T09:15:00+05:30",
+      "lastTimestamp": "2025-09-30T15:29:00+05:30",
+      "files": [
+        {
+          "relativePath": "2025\\09\\nse-index-nifty-50-1m-2025-09-01.csv",
+          "rowCount": 8250,
+          "firstTimestamp": "2025-09-01T09:15:00+05:30",
+          "lastTimestamp": "2025-09-30T15:29:00+05:30",
+          "sha256": "1afb3434270ea38dbf15b16de276d01f2d70cdc858593f21a4221716ae59835b",
+          "zeroVolumeRows": 8250
+        }
+      ],
+      "error": null
+    },
+    {
+      "from": "2025-10-01",
+      "to": "2025-10-31",
+      "status": "completed",
+      "rowCount": 7560,
+      "firstTimestamp": "2025-10-01T09:15:00+05:30",
+      "lastTimestamp": "2025-10-31T15:29:00+05:30",
+      "files": [
+        {
+          "relativePath": "2025\\10\\nse-index-nifty-50-1m-2025-10-01.csv",
+          "rowCount": 7560,
+          "firstTimestamp": "2025-10-01T09:15:00+05:30",
+          "lastTimestamp": "2025-10-31T15:29:00+05:30",
+          "sha256": "fe047b90cbad8356e902889bd52efd06cd439e6e306ef6e5a0ec9fcdc53ec14c",
+          "zeroVolumeRows": 7560
+        }
+      ],
+      "error": null
+    },
+    {
+      "from": "2025-11-01",
+      "to": "2025-11-30",
+      "status": "completed",
+      "rowCount": 7125,
+      "firstTimestamp": "2025-11-03T09:15:00+05:30",
+      "lastTimestamp": "2025-11-28T15:29:00+05:30",
+      "files": [
+        {
+          "relativePath": "2025\\11\\nse-index-nifty-50-1m-2025-11-01.csv",
+          "rowCount": 7125,
+          "firstTimestamp": "2025-11-03T09:15:00+05:30",
+          "lastTimestamp": "2025-11-28T15:29:00+05:30",
+          "sha256": "5ec13b7b66b0cb83528d8a58a3c014c3ff43e3b6a2f161f89aa93ad898354068",
+          "zeroVolumeRows": 7125
+        }
+      ],
+      "error": null
+    },
+    {
+      "from": "2025-12-01",
+      "to": "2025-12-31",
+      "status": "completed",
+      "rowCount": 8250,
+      "firstTimestamp": "2025-12-01T09:15:00+05:30",
+      "lastTimestamp": "2025-12-31T15:29:00+05:30",
+      "files": [
+        {
+          "relativePath": "2025\\12\\nse-index-nifty-50-1m-2025-12-01.csv",
+          "rowCount": 8250,
+          "firstTimestamp": "2025-12-01T09:15:00+05:30",
+          "lastTimestamp": "2025-12-31T15:29:00+05:30",
+          "sha256": "327cb66a17c3a6068fa1ca302698c24a1baa0c3bfd052a0d20cd491bdf0f3dd7",
+          "zeroVolumeRows": 8250
+        }
+      ],
+      "error": null
+    },
+    {
+      "from": "2026-01-01",
+      "to": "2026-01-31",
+      "status": "completed",
+      "rowCount": 7500,
+      "firstTimestamp": "2026-01-01T09:15:00+05:30",
+      "lastTimestamp": "2026-01-30T15:29:00+05:30",
+      "files": [
+        {
+          "relativePath": "2026\\01\\nse-index-nifty-50-1m-2026-01-01.csv",
+          "rowCount": 7500,
+          "firstTimestamp": "2026-01-01T09:15:00+05:30",
+          "lastTimestamp": "2026-01-30T15:29:00+05:30",
+          "sha256": "5c701d5673c0c68c17b4ffe2b0e9010a2c37c7b4853565acada1e4f2c192a9af",
+          "zeroVolumeRows": 7500
+        }
+      ],
+      "error": null
+    },
+    {
+      "from": "2026-02-01",
+      "to": "2026-02-28",
+      "status": "completed",
+      "rowCount": 7875,
+      "firstTimestamp": "2026-02-01T09:15:00+05:30",
+      "lastTimestamp": "2026-02-27T15:29:00+05:30",
+      "files": [
+        {
+          "relativePath": "2026\\02\\nse-index-nifty-50-1m-2026-02-01.csv",
+          "rowCount": 7875,
+          "firstTimestamp": "2026-02-01T09:15:00+05:30",
+          "lastTimestamp": "2026-02-27T15:29:00+05:30",
+          "sha256": "ca4a3187cd38f71a44a905059ee5f31e9eb785a43057a8ec59d1bebe3805978d",
+          "zeroVolumeRows": 7875
+        }
+      ],
+      "error": null
+    },
+    {
+      "from": "2026-03-01",
+      "to": "2026-03-31",
+      "status": "completed",
+      "rowCount": 7125,
+      "firstTimestamp": "2026-03-02T09:15:00+05:30",
+      "lastTimestamp": "2026-03-30T15:29:00+05:30",
+      "files": [
+        {
+          "relativePath": "2026\\03\\nse-index-nifty-50-1m-2026-03-01.csv",
+          "rowCount": 7125,
+          "firstTimestamp": "2026-03-02T09:15:00+05:30",
+          "lastTimestamp": "2026-03-30T15:29:00+05:30",
+          "sha256": "d16112333684812f128dd9cd4ee28df59b42c3184c1ec9e94da321d4192ac9fb",
+          "zeroVolumeRows": 7125
+        }
+      ],
+      "error": null
+    },
+    {
+      "from": "2026-04-01",
+      "to": "2026-04-30",
+      "status": "completed",
+      "rowCount": 7500,
+      "firstTimestamp": "2026-04-01T09:15:00+05:30",
+      "lastTimestamp": "2026-04-30T15:29:00+05:30",
+      "files": [
+        {
+          "relativePath": "2026\\04\\nse-index-nifty-50-1m-2026-04-01.csv",
+          "rowCount": 7500,
+          "firstTimestamp": "2026-04-01T09:15:00+05:30",
+          "lastTimestamp": "2026-04-30T15:29:00+05:30",
+          "sha256": "afb86f22f71e600e6775de831267f2ac618101b3c5b61d07e22ddf194a629d32",
+          "zeroVolumeRows": 7500
+        }
+      ],
+      "error": null
+    },
+    {
+      "from": "2026-05-01",
+      "to": "2026-05-31",
+      "status": "completed",
+      "rowCount": 7125,
+      "firstTimestamp": "2026-05-04T09:15:00+05:30",
+      "lastTimestamp": "2026-05-29T15:29:00+05:30",
+      "files": [
+        {
+          "relativePath": "2026\\05\\nse-index-nifty-50-1m-2026-05-01.csv",
+          "rowCount": 7125,
+          "firstTimestamp": "2026-05-04T09:15:00+05:30",
+          "lastTimestamp": "2026-05-29T15:29:00+05:30",
+          "sha256": "b095afa7bb035bb5bab4de1bd9e466cc3c029d45a85cf08fd0caefeda32daea4",
+          "zeroVolumeRows": 7125
+        }
+      ],
+      "error": null
+    },
+    {
+      "from": "2026-06-01",
+      "to": "2026-06-30",
+      "status": "completed",
+      "rowCount": 7875,
+      "firstTimestamp": "2026-06-01T09:15:00+05:30",
+      "lastTimestamp": "2026-06-30T15:29:00+05:30",
+      "files": [
+        {
+          "relativePath": "2026\\06\\nse-index-nifty-50-1m-2026-06-01.csv",
+          "rowCount": 7875,
+          "firstTimestamp": "2026-06-01T09:15:00+05:30",
+          "lastTimestamp": "2026-06-30T15:29:00+05:30",
+          "sha256": "9087e4b3316b2f3fbd3d2a9f0e03311b44bba58a2eaa24c258ded17822fd80aa",
+          "zeroVolumeRows": 7875
+        }
+      ],
+      "error": null
+    },
+    {
+      "from": "2026-07-01",
+      "to": "2026-07-31",
+      "status": "completed",
+      "rowCount": 8625,
+      "firstTimestamp": "2026-07-01T09:15:00+05:30",
+      "lastTimestamp": "2026-07-31T15:29:00+05:30",
+      "files": [
+        {
+          "relativePath": "2026\\07\\nse-index-nifty-50-1m-2026-07-01.csv",
+          "rowCount": 8625,
+          "firstTimestamp": "2026-07-01T09:15:00+05:30",
+          "lastTimestamp": "2026-07-31T15:29:00+05:30",
+          "sha256": "3ef764c23bb500d228cc99596f22e77051551b3e4cbfe4ef79e9c5a44db5da66",
+          "zeroVolumeRows": 8625
+        }
+      ],
+      "error": null
+    },
+    {
+      "from": "2026-08-01",
+      "to": "2026-08-31",
+      "status": "completed",
+      "rowCount": 7875,
+      "firstTimestamp": "2026-08-03T09:15:00+05:30",
+      "lastTimestamp": "2026-08-31T15:29:00+05:30",
+      "files": [
+        {
+          "relativePath": "2026\\08\\nse-index-nifty-50-1m-2026-08-01.csv",
+          "rowCount": 7875,
+          "firstTimestamp": "2026-08-03T09:15:00+05:30",
+          "lastTimestamp": "2026-08-31T15:29:00+05:30",
+          "sha256": "53dd17b4f238dabe8d03af86392d6842f731dfdb986d3a8c8caabb9fa0fb4fac",
+          "zeroVolumeRows": 7875
+        }
+      ],
+      "error": null
+    },
+    {
+      "from": "2026-09-01",
+      "to": "2026-09-30",
+      "status": "completed",
+      "rowCount": 7875,
+      "firstTimestamp": "2026-09-01T09:15:00+05:30",
+      "lastTimestamp": "2026-09-30T15:29:00+05:30",
+      "files": [
+        {
+          "relativePath": "2026\\09\\nse-index-nifty-50-1m-2026-09-01.csv",
+          "rowCount": 7875,
+          "firstTimestamp": "2026-09-01T09:15:00+05:30",
+          "lastTimestamp": "2026-09-30T15:29:00+05:30",
+          "sha256": "d26076f808204faa0daf1c3bdfd072b589aa7341116d5eb11b458fb6886d7e76",
+          "zeroVolumeRows": 7875
+        }
+      ],
+      "error": null
+    },
+    {
+      "from": "2026-10-01",
+      "to": "2026-10-02",
+      "status": "completed",
+      "rowCount": 375,
+      "firstTimestamp": "2026-10-01T09:15:00+05:30",
+      "lastTimestamp": "2026-10-01T15:29:00+05:30",
+      "files": [
+        {
+          "relativePath": "2026\\10\\nse-index-nifty-50-1m-2026-10-01.csv",
+          "rowCount": 375,
+          "firstTimestamp": "2026-10-01T09:15:00+05:30",
+          "lastTimestamp": "2026-10-01T15:29:00+05:30",
+          "sha256": "737872a1493039ddd1f5b687c59cb388aacff9aa2a57ca7586b111138d467d6d",
+          "zeroVolumeRows": 375
+        }
+      ],
+      "error": null
+    }
+  ]
+}
