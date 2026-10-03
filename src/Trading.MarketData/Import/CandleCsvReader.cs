@@ -3,7 +3,10 @@ using Trading.Domain.MarketData;
 
 namespace Trading.MarketData.Import;
 
-public sealed class CandleImportException(string message) : Exception(message);
+public class CandleImportException(string message, int conflicts = 0) : Exception(message)
+{
+    public int Conflicts { get; } = conflicts;
+}
 
 public sealed record CandleImportPreview(IReadOnlyList<Candle> Candles, int GapCount);
 

@@ -124,3 +124,5 @@ Development appsettings uses the supplied Windows-authenticated SQL Server conne
 A standalone repository is initialized on `main`. No remote is configured and nothing is published. `.gitignore` excludes builds, test results, local settings, keys and secrets; lock files and VS Code configuration are tracked.
 
 The repository is local. M26–M31 build the research and validation evidence chain. M32 binds it, M33 explains it, M34 records operator review, M35 qualifies paper evidence, M36 reconciles live state, and M37 issues bounded eligibility. Existing M22/M23 execution behavior remains unchanged: the shared kill switch is engaged and both direct gates are disabled. The separate M37 automation switch and kill switch also default to disabled and engaged.
+
+For raw Upstox Historical V3 minute downloads, manifest verification, resumable SQL import, and read-only database checks, see [Upstox Historical Minute Data](docs/Upstox-minute-data.md).

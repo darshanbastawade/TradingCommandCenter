@@ -89,7 +89,7 @@ public sealed class LiveTradingCommandTests
             .AddSingleton<IControlledAutomationAuthorizationStore>(authorizations)
             .AddSingleton<ILiveBrokerClient>(broker).BuildServiceProvider();
         var result = await RunAsync(files, services);
-        Assert.Equal(0, result.Exit); Assert.Equal(1, broker.PlaceCalls);
+        Assert.True(result.Exit == 0, result.Error); Assert.Equal(1, broker.PlaceCalls);
         Assert.Equal(1, authorizations.ConsumeCalls);
         var artifact = JsonSerializer.Deserialize<LiveOrderArtifact>(Assert.Single(orders.Records).ArtifactJson, Json)!;
         var authorization = ReadAuthorization(files.Authorization);

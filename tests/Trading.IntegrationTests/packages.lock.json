@@ -710,6 +710,9 @@
           "Trading.Strategies": "[1.0.0, )"
         }
       },
+      "trading.datadownloader": {
+        "type": "Project"
+      },
       "trading.domain": {
         "type": "Project"
       },

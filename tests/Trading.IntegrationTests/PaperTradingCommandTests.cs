@@ -84,7 +84,7 @@ public sealed class PaperTradingCommandTests
                 certificate.CertificateId.ToString(), "--feed-capture-id", capture.CaptureId.ToString(),
                 "--file", inputPath, "--output", outputPath, "--qualified-strategy", qualificationPath], services,
                 new ConfigurationBuilder().Build(), output, error);
-            Assert.Equal(0, result);
+            Assert.True(result == 0, error.ToString());
             Assert.Equal(string.Empty, error.ToString());
             await using var scope = services.CreateAsyncScope();
             var summary = Assert.Single(await scope.ServiceProvider.GetRequiredService<IPaperTradingSessionStore>().ListAsync());

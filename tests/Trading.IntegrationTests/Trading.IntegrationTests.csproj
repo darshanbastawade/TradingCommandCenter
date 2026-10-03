@@ -8,6 +8,7 @@
     <PackageReference Include="coverlet.collector" PrivateAssets="all" />
     <Using Include="Xunit" />
     <ProjectReference Include="../../src/Trading.Api/Trading.Api.csproj" />
+    <ProjectReference Include="../../tools/Trading.DataDownloader/Trading.DataDownloader.csproj" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
   </ItemGroup>
 </Project>

@@ -20,7 +20,12 @@ public sealed class MarketDataStore(TradingDbContext db) : IMarketDataStore
         ArgumentNullException.ThrowIfNull(candles);
         if (candles.Count > 10000) throw new ArgumentException("A batch may contain at most 10,000 candles.", nameof(candles));
         db.Candles.AddRange(candles);
-        await db.SaveChangesAsync(cancellationToken);
+        try { await db.SaveChangesAsync(cancellationToken); }
+        catch
+        {
+            foreach (var candle in candles) db.Entry(candle).State = EntityState.Detached;
+            throw;
+        }
     }
 
     public async Task<IReadOnlyList<Candle>> ReadCandlesAsync(Guid instrumentId, Timeframe timeframe,
