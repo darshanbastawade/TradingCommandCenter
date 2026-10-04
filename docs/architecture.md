@@ -33,7 +33,7 @@ flowchart TB
 
     subgraph Infrastructure[Infrastructure and state]
         Persistence[Trading.Infrastructure\nEF Core persistence adapters]
-        Database[(Trading SQL Server database)\nmarket data, research runs, candidates,\ncertificates, analyses, feed captures,\npaper/live ledger, reconciliation, automation state]
+        Database[Trading SQL Server database<br/>market data, research runs, candidates,<br/>certificates, analyses, feed captures,<br/>paper/live ledger, reconciliation, automation state]
     end
 
     subgraph External[External systems and processes]
